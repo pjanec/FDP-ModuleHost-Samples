@@ -1,0 +1,16 @@
+[submodule "ModuleHost"]
+	path = ModuleHost
+	url = https://github.com/pjanec/ModuleHost.git
+	branch = main
+[submodule "FastBTree"]
+	path = FastBTree
+	url = https://github.com/pjanec/FastBTree.git
+	branch = main
+[submodule "FastCycloneDdsCsharpBindings"]
+	path = FastCycloneDdsCsharpBindings
+	url = https://github.com/pjanec/FastCycloneDdsCsharpBindings.git
+	branch = main
+[submodule "FastHSM"]
+	path = FastHSM
+	url = https://github.com/pjanec/FastHSM.git
+	branch = main
