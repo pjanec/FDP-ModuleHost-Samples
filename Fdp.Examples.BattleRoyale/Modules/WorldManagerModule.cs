@@ -34,8 +34,10 @@ public class WorldManagerModule : IModule
             var item = cmd.CreateEntity();
             cmd.AddComponent(item, new Position
             {
-                X = Random.Shared.Next(0, 1000),
-                Y = Random.Shared.Next(0, 1000)
+                Value = new System.Numerics.Vector3(
+                    Random.Shared.Next(0, 1000),
+                    Random.Shared.Next(0, 1000),
+                    0)
             });
             cmd.AddComponent(item, new ItemType
             {

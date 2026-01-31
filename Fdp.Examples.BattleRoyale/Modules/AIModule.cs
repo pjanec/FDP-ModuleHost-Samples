@@ -4,6 +4,7 @@ using Fdp.Kernel;
 using Fdp.Examples.BattleRoyale.Components;
 using ModuleHost.Core;
 using ModuleHost.Core.Abstractions;
+using System.Numerics;
 
 public class AIModule : IModule
 {
@@ -45,9 +46,7 @@ public class AIModule : IModule
             foreach (var player in players)
             {
                 ref readonly var playerPos = ref view.GetComponentRO<Position>(player);
-                float dx = playerPos.X - botPos.X;
-                float dy = playerPos.Y - botPos.Y;
-                float distSq = dx * dx + dy * dy;
+                float distSq = (playerPos.Value - botPos.Value).LengthSquared();
                 
                 if (distSq < minDist)
                 {
@@ -61,24 +60,20 @@ public class AIModule : IModule
                 ref readonly var targetPos = ref view.GetComponentRO<Position>(target);
                 
                 // Move toward target
-                float dx = targetPos.X - botPos.X;
-                float dy = targetPos.Y - botPos.Y;
-                float dist = MathF.Sqrt(dx * dx + dy * dy);
+                var toTarget = targetPos.Value - botPos.Value;
+                float dist = toTarget.Length();
                 
-                float nx = 0;
-                float ny = 0;
+                Vector3 n = Vector3.Zero;
                 if (dist > 0.001f)
                 {
-                     nx = dx / dist;
-                     ny = dy / dist;
+                     n = Vector3.Normalize(toTarget);
                 }
                 
                 if (dist > 0.1f)
                 {
                     cmd.SetComponent(bot, new Velocity
                     {
-                        X = nx * 5.0f * aiState.AggressionLevel,
-                        Y = ny * 5.0f * aiState.AggressionLevel
+                        Value = n * 5.0f * aiState.AggressionLevel
                     });
                     
                     decisionsCount++;
@@ -89,8 +84,8 @@ public class AIModule : IModule
                 {
                     // Spawn projectile
                     var proj = cmd.CreateEntity();
-                    cmd.AddComponent(proj, new Position { X = botPos.X, Y = botPos.Y });
-                    cmd.AddComponent(proj, new Velocity { X = nx * 30.0f, Y = ny * 30.0f });
+                    cmd.AddComponent(proj, new Position { Value = botPos.Value });
+                    cmd.AddComponent(proj, new Velocity { Value = n * 30.0f });
                     cmd.AddComponent(proj, new Damage { Amount = 10.0f });
                     
                     projectilesSpawned++;

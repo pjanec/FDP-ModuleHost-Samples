@@ -83,8 +83,8 @@ class Program
         {
             EntityFactory.CreateProjectile(
                 world,
-                new Position { X = 100f + i * 10, Y = 100f + i * 10 },
-                new Velocity { X = 5f, Y = 5f },
+                new Position { Value = new System.Numerics.Vector3(100f + i * 10, 100f + i * 10, 0) },
+                new Velocity { Value = new System.Numerics.Vector3(5f, 5f, 0) },
                 25f
             );
         }

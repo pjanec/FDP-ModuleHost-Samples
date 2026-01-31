@@ -1,7 +1,8 @@
+using System.Numerics;
+
 namespace Fdp.Examples.BattleRoyale.Components;
 
 public struct Velocity
 {
-    public float X;
-    public float Y;
+    public Vector3 Value;
 }

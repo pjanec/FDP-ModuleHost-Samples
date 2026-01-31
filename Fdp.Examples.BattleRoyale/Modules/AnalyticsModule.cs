@@ -57,8 +57,8 @@ public class AnalyticsModule : IModule
         foreach (var kill in killEvents)
         {
             var gridPos = new Vector2Int(
-                (int)(kill.Position.X / 100),
-                (int)(kill.Position.Y / 100)
+                (int)(kill.Position.Value.X / 100),
+                (int)(kill.Position.Value.Y / 100)
             );
             _killHeatmap[gridPos] = _killHeatmap.GetValueOrDefault(gridPos) + 1;
         }

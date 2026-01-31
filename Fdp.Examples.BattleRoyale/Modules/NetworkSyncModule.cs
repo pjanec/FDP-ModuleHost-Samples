@@ -35,8 +35,8 @@ public class NetworkSyncModule : IModule
             
             // Check if position changed (delta compression)
             if (!_lastPositions.TryGetValue(entity, out var lastPos) ||
-                Math.Abs(pos.X - lastPos.X) > 0.1f ||
-                Math.Abs(pos.Y - lastPos.Y) > 0.1f)
+                Math.Abs(pos.Value.X - lastPos.Value.X) > 0.1f ||
+                Math.Abs(pos.Value.Y - lastPos.Value.Y) > 0.1f)
             {
                 _lastPositions[entity] = pos;
                 updated++;

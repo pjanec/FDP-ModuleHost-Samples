@@ -1,3 +1,4 @@
+using System.Numerics;
 using Fdp.Kernel;
 using Fdp.Examples.BattleRoyale.Components;
 
@@ -42,15 +43,13 @@ public static class EntityFactory
             // Position
             world.AddComponent(entity, new Position
             {
-                X = Random.Shared.NextSingle() * 1000f,
-                Y = Random.Shared.NextSingle() * 1000f
+                Value = new Vector3(Random.Shared.NextSingle() * 1000f, Random.Shared.NextSingle() * 1000f, 0f)
             });
             
             // Velocity (initially at rest)
             world.AddComponent(entity, new Velocity
             {
-                X = 0f,
-                Y = 0f
+                Value = Vector3.Zero
             });
             
             // Health
@@ -103,15 +102,13 @@ public static class EntityFactory
             // Position
             world.AddComponent(entity, new Position
             {
-                X = Random.Shared.NextSingle() * 1000f,
-                Y = Random.Shared.NextSingle() * 1000f
+                Value = new Vector3(Random.Shared.NextSingle() * 1000f, Random.Shared.NextSingle() * 1000f, 0f)
             });
             
             // Velocity (initially at rest)
             world.AddComponent(entity, new Velocity
             {
-                X = 0f,
-                Y = 0f
+                Value = Vector3.Zero
             });
             
             // Health
@@ -142,8 +139,7 @@ public static class EntityFactory
             // Position
             world.AddComponent(entity, new Position
             {
-                X = Random.Shared.NextSingle() * 1000f,
-                Y = Random.Shared.NextSingle() * 1000f
+                Value = new Vector3(Random.Shared.NextSingle() * 1000f, Random.Shared.NextSingle() * 1000f, 0f)
             });
             
             // Random item type
@@ -165,8 +161,7 @@ public static class EntityFactory
         // Center of the map
         world.AddComponent(entity, new Position
         {
-            X = 500f,
-            Y = 500f
+            Value = new Vector3(500f, 500f, 0f)
         });
         
         // Initial safe zone radius

@@ -60,8 +60,8 @@ public class PhysicsModule : IModule
                 ref readonly var playerPos = ref view.GetComponentRO<Position>(player);
                 
                 // Distance check (squared for performance)
-                float dx = projPos.X - playerPos.X;
-                float dy = projPos.Y - playerPos.Y;
+                float dx = projPos.Value.X - playerPos.Value.X;
+                float dy = projPos.Value.Y - playerPos.Value.Y;
                 float distSq = dx * dx + dy * dy;
                 
                 if (distSq < CollisionRadiusSq)
