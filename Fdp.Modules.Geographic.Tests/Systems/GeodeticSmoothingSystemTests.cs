@@ -3,9 +3,9 @@ using System.Numerics;
 using Xunit;
 using Moq;
 using Fdp.Kernel;
-using ModuleHost.Core.Geographic;
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
+using Fdp.Modules.Geographic;
 using Fdp.Modules.Geographic.Systems;
 using Fdp.Modules.Geographic.Components;
 

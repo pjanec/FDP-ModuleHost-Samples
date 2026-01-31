@@ -3,7 +3,6 @@ using System.Numerics;
 using Fdp.Kernel;
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
-using ModuleHost.Core.Geographic;
 using Fdp.Modules.Geographic.Components;
 
 using PositionGeodetic = Fdp.Modules.Geographic.Components.PositionGeodetic;

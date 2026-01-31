@@ -1,7 +1,6 @@
 using Xunit;
 using Moq;
 using ModuleHost.Core.Abstractions;
-using ModuleHost.Core.Geographic;
 using Fdp.Modules.Geographic.Systems;
 using Fdp.Modules.Geographic;
 

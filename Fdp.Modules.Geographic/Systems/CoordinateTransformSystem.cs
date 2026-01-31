@@ -2,8 +2,7 @@ using System;
 using System.Numerics;
 using Fdp.Kernel;
 using ModuleHost.Core.Abstractions;
-using ModuleHost.Core.Network; // For Position
-using ModuleHost.Core.Geographic;
+using ModuleHost.Core.Network; // For NetworkOwnership
 using Fdp.Modules.Geographic.Components;
 
 using PositionGeodetic = Fdp.Modules.Geographic.Components.PositionGeodetic;

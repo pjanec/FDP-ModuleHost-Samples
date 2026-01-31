@@ -1,6 +1,6 @@
 using System;
 using System.Numerics;
-using ModuleHost.Core.Geographic;
+using Fdp.Modules.Geographic;
 
 namespace Fdp.Modules.Geographic.Transforms
 {

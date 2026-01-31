@@ -27,7 +27,7 @@ namespace ModuleHost.Network.Cyclone.Tests.Modules
             
             // Register required components
             _repo.RegisterComponent<PendingNetworkAck>();
-            _repo.RegisterComponent<NetworkIdentity>();
+            // NetworkIdentity removed from Core
             
             // Create ELM with gateway as participating module
             _elm = new EntityLifecycleModule(new[] { MODULE_ID }, MODULE_ID);
@@ -82,7 +82,7 @@ namespace ModuleHost.Network.Cyclone.Tests.Modules
         {
             // Arrange
             var entity = _repo.CreateEntity();
-            _repo.AddComponent(entity, new NetworkIdentity { Value = 1000 });
+            // NetworkIdentity removed
             _repo.AddComponent(entity, new PendingNetworkAck 
             { 
                 ExpectedType = ReliableInitType.AllPeers 
@@ -105,7 +105,7 @@ namespace ModuleHost.Network.Cyclone.Tests.Modules
         {
             // Arrange
             var entity = _repo.CreateEntity();
-            _repo.AddComponent(entity, new NetworkIdentity { Value = 2000 });
+            // NetworkIdentity removed
             // Note: NOT adding PendingNetworkAck
 
             // Act & Assert

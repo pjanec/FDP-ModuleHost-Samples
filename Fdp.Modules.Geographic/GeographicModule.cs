@@ -1,6 +1,5 @@
 using ModuleHost.Core.Abstractions;
 using Fdp.Modules.Geographic.Systems;
-using ModuleHost.Core.Geographic;
 
 namespace Fdp.Modules.Geographic
 {

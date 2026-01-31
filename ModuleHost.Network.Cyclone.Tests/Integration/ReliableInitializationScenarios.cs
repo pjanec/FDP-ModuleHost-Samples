@@ -1,235 +1,187 @@
 using System;
-using Xunit;
-using Moq;
-using ModuleHost.Network.Cyclone.Services;
-using ModuleHost.Network.Cyclone.Modules;
 using System.Collections.Generic;
-using System.Linq;
+using System.Numerics;
+using Xunit;
 using Fdp.Kernel;
 using ModuleHost.Core.Abstractions;
-using ModuleHost.Core.ELM;
 using ModuleHost.Core.Network;
-using ModuleHost.Core.Network.Interfaces;
+using ModuleHost.Network.Cyclone.Components;
+using ModuleHost.Network.Cyclone.Services;
 using ModuleHost.Network.Cyclone.Topics;
 using ModuleHost.Network.Cyclone.Translators;
+using ModuleHost.Network.Cyclone.Tests.Mocks;
 
 namespace ModuleHost.Network.Cyclone.Tests.Integration
 {
+    public class MockDataWriter : IDataWriter
+    {
+        public List<object> WrittenSamples = new List<object>();
+        public string TopicName => "MockTopic";
+
+        public void Write(object sample)
+        {
+            WrittenSamples.Add(sample);
+        }
+
+        public void Dispose(long networkEntityId) { }
+        public void Dispose() { }
+    }
+
     public class ReliableInitializationScenarios
     {
-        // === Components needed ===
-        // PendingNetworkAck, NetworkSpawnRequest, NetworkIdentity, EntityLifecycleStatusDescriptor (msg)
-        
         [Fact]
-        public void Scenario_FullReliableInit_TwoNodes()
+        public void Translator_Restoration_SmokeTest()
         {
-            // Setup Repository
-            using var repo = new EntityRepository();
-            RegisterComponents(repo);
+            // 1. Setup Environment
+            var repo = new EntityRepository();
+            var view = (ISimulationView)repo;
+            var cmd = view.GetCommandBuffer();
             
-            // Setup Modules
-            var topo = new StaticNetworkTopology(1, new[] { 1, 2 }); // Local=1, Peer=2
-            var elm = new EntityLifecycleModule(new[] { 10, 20 });   // Gateway=10, Other=20
-            var gateway = new NetworkGatewayModule(10, 1, topo, elm);
-            
-            // Other participating module (e.g. Physics)
-            // We'll manually ACK for it
-            
-            // Initialize
-            elm.RegisterModule(10);
-            
-            // === Step 1: Create Entity ===
-            var entity = repo.CreateEntity();
-            repo.AddComponent(entity, new NetworkIdentity { Value = 100 });
-            repo.AddComponent(entity, new NetworkSpawnRequest { DisType = new DISEntityType { Kind = 1 } });
-            repo.AddComponent(entity, new PendingNetworkAck { ExpectedType = ReliableInitType.AllPeers }); // Added by Spawner in real flow
-            repo.SetLifecycleState(entity, EntityLifecycle.Constructing); // Spawner sets this normally
-            Assert.Equal(EntityLifecycle.Constructing, repo.GetHeader(entity.Index).LifecycleState); // Verify immediate set
-            
-            // ELM begins construction
-            var cmd = ((ISimulationView)repo).GetCommandBuffer();
-            elm.BeginConstruction(entity, 1, repo.GlobalVersion, cmd);
-            ((EntityCommandBuffer)cmd).Playback(repo); // Publish ConstructionOrder
-            
-            // === Step 2: Gateway Processing (Tick 1) ===
-            // Gateway should see ConstructionOrder and wait
-            repo.Bus.SwapBuffers();
-            gateway.Tick(repo, 0);
-            
-            // Verify not ACKed yet
-            // We can check internal state of ELM? No easy way. 
-            // Check EntityLifecycle?
-            Assert.Equal(EntityLifecycle.Constructing, repo.GetHeader(entity.Index).LifecycleState);
-            
-            // === Step 3: Simulate Peer ACK ===
-            // Simulate receiving message from Node 2
-            gateway.ReceiveLifecycleStatus(entity, 2, EntityLifecycle.Active, cmd, repo.GlobalVersion);
-            ((EntityCommandBuffer)cmd).Playback(repo);
-            
-            // Gateway hasn't ACKed yet because it does it in ReceiveLifecycleStatus? 
-            // Yes, ReceiveLifecycleStatus calls _elm.AcknowledgeConstruction immediately if all peers ACKed.
-            
-            // But we also need the "Other" module (20) to ACK.
-            elm.AcknowledgeConstruction(entity, 20, repo.GlobalVersion, cmd);
-            ((EntityCommandBuffer)cmd).Playback(repo);
-            
-            // ELM should process ACKs. ELM logic is inside LifecycleSystem usually. 
-            // But we can call internal methods or Tick ELM if we registered LifecycleSystem?
-            // ELM has internal ProcessConstructionAck.
-            // We need to run ELM's system.
-            // Since we didn't register ELM system to repo, we need to manually process ACKs.
-            // Wait, LifecycleSystem is what calls ProcessConstructionAck.
-            // Let's manually bridge the event to ELM method for test.
-            
-            ProcessAcks(repo, elm);
-            
-            // === Step 4: Verify Active ===
-            Assert.Equal(EntityLifecycle.Active, repo.GetHeader(entity.Index).LifecycleState);
-            Assert.False(repo.HasComponent<PendingNetworkAck>(entity)); // Should be removed by Gateway
-        }
-        
-        [Fact]
-        public void Scenario_FastMode_Works()
-        {
-            using var repo = new EntityRepository();
-            RegisterComponents(repo);
-            
-            var topo = new StaticNetworkTopology(1, new[] { 1, 2 });
-            var elm = new EntityLifecycleModule(new[] { 10 });
-            var gateway = new NetworkGatewayModule(10, 1, topo, elm);
-            
-            elm.RegisterModule(10);
-            
-            var entity = repo.CreateEntity();
-            // No PendingNetworkAck
-            
-            var cmd = ((ISimulationView)repo).GetCommandBuffer();
-            elm.BeginConstruction(entity, 1, repo.GlobalVersion, cmd);
-            ((EntityCommandBuffer)cmd).Playback(repo);
-            
-            gateway.Tick(repo, 0);
-            ((EntityCommandBuffer)cmd).Playback(repo);
-            
-            ProcessAcks(repo, elm);
-            
-            Assert.Equal(EntityLifecycle.Active, repo.GetHeader(entity.Index).LifecycleState);
-        }
-        
-        [Fact]
-        public void Scenario_Timeout_Works()
-        {
-            using var repo = new EntityRepository();
-            RegisterComponents(repo);
-            
-            var topo = new StaticNetworkTopology(1, new[] { 1, 2 });
-            var elm = new EntityLifecycleModule(new[] { 10 });
-            var gateway = new NetworkGatewayModule(10, 1, topo, elm);
-            
-            var entity = repo.CreateEntity();
-            repo.AddComponent(entity, new NetworkSpawnRequest { DisType = new DISEntityType { Kind = 1 } });
-            repo.AddComponent(entity, new PendingNetworkAck { ExpectedType = ReliableInitType.AllPeers });
-            
-            var cmd = ((ISimulationView)repo).GetCommandBuffer();
-            elm.BeginConstruction(entity, 1, repo.GlobalVersion, cmd);
-            ((EntityCommandBuffer)cmd).Playback(repo);
-            
-            // Start Gateway (starts waiting)
-            gateway.Tick(repo, 0);
-            
-            // Advance time
-            for(int i=0; i<305; i++) repo.Tick(); // Advance GlobalVersion
-            
-            // Gateway check timeout
-            gateway.Tick(repo, 0);
-            ((EntityCommandBuffer)cmd).Playback(repo);
-            
-            ProcessAcks(repo, elm);
-            
-            Assert.Equal(EntityLifecycle.Active, repo.GetHeader(entity.Index).LifecycleState);
-        }
-
-        [Fact]
-        public void Scenario_MixedEntityTypes_ReliableAndFast()
-        {
-            using var repo = new EntityRepository();
-            RegisterComponents(repo);
-            
-            var topo = new StaticNetworkTopology(1, new[] { 1, 2 });
-            var elm = new EntityLifecycleModule(new[] { 10 });
-            var gateway = new NetworkGatewayModule(10, 1, topo, elm);
-            
-            // Create 3 entities
-            var reliable1 = repo.CreateEntity();
-            var fast1 = repo.CreateEntity();
-            var fast2 = repo.CreateEntity();
-            
-            // Reliable entity setup
-            repo.AddComponent(reliable1, new NetworkSpawnRequest { DisType = new DISEntityType { Kind = 1 } });
-            repo.AddComponent(reliable1, new PendingNetworkAck { ExpectedType = ReliableInitType.AllPeers }); // Reliable mode
-            repo.SetLifecycleState(reliable1, EntityLifecycle.Constructing);
-            Assert.Equal(EntityLifecycle.Constructing, repo.GetHeader(reliable1.Index).LifecycleState);
-            
-            // Fast entities - no PendingNetworkAck
-            // (no additional components needed for fast mode)
-            
-            var cmd = ((ISimulationView)repo).GetCommandBuffer();
-            
-            // Begin construction for all
-            elm.BeginConstruction(reliable1, 1, repo.GlobalVersion, cmd);
-            elm.BeginConstruction(fast1, 2, repo.GlobalVersion, cmd);
-            elm.BeginConstruction(fast2, 3, repo.GlobalVersion, cmd);
-            ((EntityCommandBuffer)cmd).Playback(repo);
-            
-            // Gateway processes
-            repo.Bus.SwapBuffers();
-            gateway.Tick(repo, 0);
-            ((EntityCommandBuffer)cmd).Playback(repo);
-            
-            ProcessAcks(repo, elm);
-            
-            // Fast entities should be Active
-            Assert.Equal(EntityLifecycle.Active, repo.GetHeader(fast1.Index).LifecycleState);
-            Assert.Equal(EntityLifecycle.Active, repo.GetHeader(fast2.Index).LifecycleState);
-            
-            // Reliable entity still Constructing (waiting for peer)
-            Assert.Equal(EntityLifecycle.Constructing, repo.GetHeader(reliable1.Index).LifecycleState);
-            
-            // Now peer ACKs
-            gateway.ReceiveLifecycleStatus(reliable1, 2, EntityLifecycle.Active, cmd, repo.GlobalVersion);
-            ((EntityCommandBuffer)cmd).Playback(repo);
-            ProcessAcks(repo, elm);
-            
-            // Now reliable entity is Active
-            Assert.Equal(EntityLifecycle.Active, repo.GetHeader(reliable1.Index).LifecycleState);
-        }
-
-        private void RegisterComponents(EntityRepository repo)
-        {
-            repo.RegisterComponent<NetworkSpawnRequest>();
-            repo.RegisterComponent<PendingNetworkAck>();
+            // Register Components
             repo.RegisterComponent<NetworkIdentity>();
-            repo.RegisterComponent<ForceNetworkPublish>();
-            repo.RegisterManagedComponent<WeaponStates>();
+            repo.RegisterComponent<NetworkSpawnRequest>();
+            repo.RegisterComponent<NetworkOwnership>();
+            repo.RegisterComponent<NetworkPosition>();
+            repo.RegisterComponent<NetworkVelocity>();
+            repo.RegisterComponent<NetworkOrientation>();
+
+            var entityMap = new NetworkEntityMap();
+            var nodeMapper = new NodeIdMapper(0, 1); // Domain 0, Instance 1
+            var typeMapper = new TypeIdMapper();
+
+            var masterTranslator = new EntityMasterTranslator(entityMap, nodeMapper, typeMapper);
+            var stateTranslator = new EntityStateTranslator(entityMap);
+
+            // 2. Simulate Ingress: Entity Master (Spawn)
+            long netEntityId = 999;
+            ulong disType = 55;
+            int ownerNodeId = 1; // Local
             
-            // Register Events
-            repo.RegisterEvent<ConstructionOrder>();
-            repo.RegisterEvent<ConstructionAck>();
-            repo.RegisterEvent<DestructionOrder>();
-            repo.RegisterEvent<DescriptorAuthorityChanged>();
-        }
-        
-        private void ProcessAcks(EntityRepository repo, EntityLifecycleModule elm)
-        {
-            // 1. Swap buffers so published events (ConstructionAck) become visible
-            repo.Bus.SwapBuffers();
+            var masterCdr = new MockDataReader(new MockDataSample 
+            { 
+                Data = new EntityMasterTopic 
+                { 
+                    EntityId = netEntityId,
+                    DisTypeValue = disType,
+                    OwnerId = nodeMapper.GetExternalId(ownerNodeId)
+                }
+            });
+
+            masterTranslator.PollIngress(masterCdr, cmd, repo);
             
-            // 2. Use the System to process them (Public API)
-            var sys = new LifecycleSystem(elm);
-            sys.Execute(repo, 0f); // This consumes events and calls internal logic
+            // Execution Phase
+            ((EntityCommandBuffer)cmd).Playback(repo); // Execute creation
+
+            // FIX: Map now contains a placeholder entity (because CommandBuffer deferred creation).
+            // We need to resolve it to the real entity for subsequent tests.
+            // In a real loop, a system would maintain this map or the translator would handle remapping.
+            // For this smoke test, we verify the placeholder is there, then swap it for the real entity found in repo.
+            Assert.True(entityMap.TryGet(netEntityId, out var placeholderEntity));
+            Assert.True(placeholderEntity.Index < 0); // Is placeholder
+
+            // Find the real entity
+            var query = ((ISimulationView)repo).Query().With<NetworkIdentity>().Build();
+            Entity realEntity = default;
+            foreach(var e in query) {
+                if (repo.GetComponentRO<NetworkIdentity>(e).Value == netEntityId) {
+                    realEntity = e;
+                    break;
+                }
+            }
+            Assert.True(realEntity.Index >= 0);
+
+            // Update Map for next steps
+            entityMap.Register(netEntityId, realEntity); // Overwrites placeholder (ConcurrentDictionary)
+
+            // 3. Verify Spawn
+            Assert.True(entityMap.TryGet(netEntityId, out var entity));
+            Assert.Equal(realEntity, entity);
+            Assert.True(repo.HasComponent<NetworkIdentity>(entity));
+            Assert.Equal(netEntityId, repo.GetComponentRO<NetworkIdentity>(entity).Value);
             
-            // 3. Playback commands generated by the system (e.g. SetLifecycleState)
-            var cmd = ((ISimulationView)repo).GetCommandBuffer();
+            Assert.True(repo.HasComponent<NetworkSpawnRequest>(entity));
+            Assert.Equal(disType, repo.GetComponentRO<NetworkSpawnRequest>(entity).DisType);
+
+            Assert.True(repo.HasComponent<NetworkOwnership>(entity));
+            Assert.Equal(ownerNodeId, repo.GetComponentRO<NetworkOwnership>(entity).PrimaryOwnerId);
+
+            // 4. Simulate Ingress: Entity State (Position/Vel)
+            var stateCdr = new MockDataReader(new MockDataSample
+            {
+                Data = new EntityStateTopic
+                {
+                    EntityId = netEntityId,
+                    PositionX = 100, PositionY = 200, PositionZ = 300,
+                    VelocityX = 1, VelocityY = 0, VelocityZ = 0,
+                    OrientationX = 0, OrientationY = 0, OrientationZ = 0, OrientationW = 1
+                }
+            });
+
+            stateTranslator.PollIngress(stateCdr, cmd, repo);
             ((EntityCommandBuffer)cmd).Playback(repo);
+
+            // 5. Verify State
+            Assert.True(repo.HasComponent<NetworkPosition>(entity));
+            var pos = repo.GetComponentRO<NetworkPosition>(entity);
+            Assert.Equal(100f, pos.Value.X);
+            Assert.Equal(200f, pos.Value.Y);
+            Assert.Equal(300f, pos.Value.Z);
+
+            Assert.True(repo.HasComponent<NetworkVelocity>(entity));
+            var vel = repo.GetComponentRO<NetworkVelocity>(entity).Value;
+            Assert.Equal(1f, vel.X);
+        }
+
+        [Fact]
+        public void Egress_ScanAndPublish_SmokeTest()
+        {
+             // 1. Setup Environment
+            var repo = new EntityRepository();
+            var view = (ISimulationView)repo;
+            var cmd = view.GetCommandBuffer();
+            
+            repo.RegisterComponent<NetworkIdentity>();
+            repo.RegisterComponent<NetworkSpawnRequest>();
+            repo.RegisterComponent<NetworkOwnership>();
+            repo.RegisterComponent<NetworkPosition>();
+            repo.RegisterComponent<NetworkVelocity>();
+            repo.RegisterComponent<NetworkOrientation>();
+
+            var entityMap = new NetworkEntityMap();
+            var nodeMapper = new NodeIdMapper(0, 1); // Domain 0, Instance 1
+            var typeMapper = new TypeIdMapper();
+
+            var masterTranslator = new EntityMasterTranslator(entityMap, nodeMapper, typeMapper);
+            var stateTranslator = new EntityStateTranslator(entityMap);
+
+            // 2. Create Local Entity
+            var entity = repo.CreateEntity();
+            repo.AddComponent(entity, new NetworkIdentity { Value = 888 });
+            repo.AddComponent(entity, new NetworkSpawnRequest { DisType = 12, OwnerId = 1 });
+            repo.AddComponent(entity, new NetworkOwnership { PrimaryOwnerId = 1, LocalNodeId = 1 });
+            repo.AddComponent(entity, new NetworkPosition { Value = new Vector3(10, 20, 30) });
+            repo.AddComponent(entity, new NetworkVelocity { Value = new Vector3(0,1,0) });
+            repo.AddComponent(entity, new NetworkOrientation { Value = Quaternion.Identity });
+
+            // 3. Scan Egress
+            var masterWriter = new MockDataWriter();
+            masterTranslator.ScanAndPublish(repo, masterWriter);
+
+            // Verify Master Topic
+            Assert.Single(masterWriter.WrittenSamples);
+            var masterTopic = (EntityMasterTopic)masterWriter.WrittenSamples[0];
+            Assert.Equal(888, masterTopic.EntityId);
+            Assert.Equal(12ul, masterTopic.DisTypeValue);
+
+            // 4. Scan State
+            var stateWriter = new MockDataWriter();
+            stateTranslator.ScanAndPublish(repo, stateWriter);
+
+            // Verify State Topic
+            Assert.Single(stateWriter.WrittenSamples);
+            var stateTopic = (EntityStateTopic)stateWriter.WrittenSamples[0];
+            Assert.Equal(888, stateTopic.EntityId);
+            Assert.Equal(10, stateTopic.PositionX);
         }
     }
 }

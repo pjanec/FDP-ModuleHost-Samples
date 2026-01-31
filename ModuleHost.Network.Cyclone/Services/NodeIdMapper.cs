@@ -16,6 +16,8 @@ namespace ModuleHost.Network.Cyclone.Services
         private int _nextId = 2; // Start at 2 since 1 is reserved for local node
         private readonly object _lock = new();
 
+        public int LocalNodeId => 1;
+
         /// <summary>
         /// Creates a new NodeIdMapper with the local node reserved as ID 1.
         /// </summary>
