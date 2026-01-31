@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ModuleHost\FDP\Fdp.Kernel\Fdp.Kernel.csproj" />
     <ProjectReference Include="..\ModuleHost\ModuleHost.Core\ModuleHost.Core.csproj" />
+    <ProjectReference Include="..\ModuleHost.Network.Cyclone\ModuleHost.Network.Cyclone.csproj" />
   </ItemGroup>
 
 </Project>

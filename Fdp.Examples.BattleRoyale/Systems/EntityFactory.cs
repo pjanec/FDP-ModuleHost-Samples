@@ -1,6 +1,8 @@
 using System.Numerics;
 using Fdp.Kernel;
 using Fdp.Examples.BattleRoyale.Components;
+using ModuleHost.Network.Cyclone.Components;
+using ModuleHost.Core.Network;
 
 namespace Fdp.Examples.BattleRoyale.Systems;
 
@@ -22,6 +24,12 @@ public static class EntityFactory
         world.RegisterComponent<ItemType>();
         world.RegisterComponent<Damage>();
         world.RegisterComponent<SafeZone>();
+        
+        // Network components
+        world.RegisterComponent<NetworkOwnership>();
+        world.RegisterComponent<NetworkPosition>();
+        world.RegisterComponent<NetworkIdentity>();
+        world.RegisterComponent<NetworkSpawnRequest>();
         
         // Managed component
         world.RegisterComponent<PlayerInfo>(); // Was RegisterComponent in snippet 
@@ -58,6 +66,10 @@ public static class EntityFactory
                 Current = 100f,
                 Max = 100f
             });
+
+            // Network Identity
+            world.AddComponent(entity, new NetworkIdentity { Value = 0 });
+            world.AddComponent(entity, new NetworkSpawnRequest { DisType = 1, OwnerId = 0 });
             
             // Inventory (starting equipment)
             world.AddComponent(entity, new Inventory

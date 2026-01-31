@@ -5,6 +5,9 @@ using Fdp.Examples.BattleRoyale.Modules;
 using Fdp.Examples.BattleRoyale.Visualization;
 using ModuleHost.Core;
 using ModuleHost.Core.Abstractions;
+using ModuleHost.Core.Network;
+using ModuleHost.Core.ELM;
+using ModuleHost.Network.Cyclone.Modules;
 
 namespace Fdp.Examples.BattleRoyale;
 
@@ -29,9 +32,23 @@ class Program
         using var moduleHost = new ModuleHostKernel(world, eventAccumulator);
         moduleHost.SetSchemaSetup(EntityFactory.RegisterAllComponents);
         
-        // Register Fast Tier modules
-        moduleHost.RegisterModule(new NetworkSyncModule());
-        Console.WriteLine("✓ Registered NetworkSyncModule (Fast tier)");
+        // Register Network Infrastructure
+        const int NetworkModuleId = 100;
+        const int LocalNodeId = 1;
+        
+        var topology = new StaticNetworkTopology(LocalNodeId, new[] { LocalNodeId });
+        var elm = new EntityLifecycleModule(new[] { NetworkModuleId });
+        var gateway = new ModuleHost.Network.Cyclone.Modules.NetworkGatewayModule(NetworkModuleId, LocalNodeId, topology, elm);
+        
+        moduleHost.RegisterModule(elm);
+        Console.WriteLine("✓ Registered EntityLifecycleModule");
+        
+        moduleHost.RegisterModule(gateway);
+        Console.WriteLine("✓ Registered Cyclone NetworkGatewayModule");
+
+        // Register Sync System (Bridging Local <-> Network)
+        moduleHost.RegisterGlobalSystem(new NetworkSyncSystem());
+        Console.WriteLine("✓ Registered NetworkSyncSystem");
         
         moduleHost.RegisterModule(new FlightRecorderModule());
         Console.WriteLine("✓ Registered FlightRecorderModule (Fast tier)");

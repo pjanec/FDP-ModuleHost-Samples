@@ -19,7 +19,7 @@ namespace ModuleHost.Network.Cyclone.Tests.Mocks
                 if (Data is long l) return l; // For disposal keys
                 if (Data is ModuleHost.Core.Network.Messages.OwnershipUpdate ou) return ou.EntityId;
                 // Callback to old types if strictly necessary, but preferably not.
-                if (Data is EntityStateDescriptor esd) return esd.EntityId;
+                // EntityStateDescriptor removed from Core
                 return 0;
             }
         }
