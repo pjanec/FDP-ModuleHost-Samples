@@ -35,9 +35,9 @@ namespace ModuleHost.Network.Cyclone.Modules
         private EntityStateTranslator _stateTranslator;
         
         // DDS
-        private DdsReader<EntityMasterTopic, EntityMasterTopic> _masterReader;
+        private DdsReader<EntityMasterTopic> _masterReader;
         private DdsWriter<EntityMasterTopic> _masterWriter;
-        private DdsReader<EntityStateTopic, EntityStateTopic> _stateReader;
+        private DdsReader<EntityStateTopic> _stateReader;
         private DdsWriter<EntityStateTopic> _stateWriter;
         
         private NetworkGatewayModule _gatewayModule;
@@ -64,10 +64,10 @@ namespace ModuleHost.Network.Cyclone.Modules
             _stateTranslator = new EntityStateTranslator(_entityMap);
             
             // Initialize DDS Entities
-            _masterReader = new DdsReader<EntityMasterTopic, EntityMasterTopic>(_participant, "EntityMaster");
+            _masterReader = new DdsReader<EntityMasterTopic>(_participant, "EntityMaster");
             _masterWriter = new DdsWriter<EntityMasterTopic>(_participant, "EntityMaster");
             
-            _stateReader = new DdsReader<EntityStateTopic, EntityStateTopic>(_participant, "EntityState");
+            _stateReader = new DdsReader<EntityStateTopic>(_participant, "EntityState");
             _stateWriter = new DdsWriter<EntityStateTopic>(_participant, "EntityState");
             
             _gatewayModule = new NetworkGatewayModule(101, _nodeMapper.LocalNodeId, _topology, _elm);
@@ -81,8 +81,8 @@ namespace ModuleHost.Network.Cyclone.Modules
             registry.RegisterSystem(new CycloneNetworkIngressSystem(
                 new IDescriptorTranslator[] { _masterTranslator, _stateTranslator },
                 new IDataReader[] { 
-                    new CycloneDataReader<EntityMasterTopic, EntityMasterTopic>(_masterReader, "EntityMaster"),
-                    new CycloneDataReader<EntityStateTopic, EntityStateTopic>(_stateReader, "EntityState")
+                    new CycloneDataReader<EntityMasterTopic>(_masterReader, "EntityMaster"),
+                    new CycloneDataReader<EntityStateTopic>(_stateReader, "EntityState")
                 }
             ));
             

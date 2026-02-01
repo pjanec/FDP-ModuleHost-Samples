@@ -7,12 +7,12 @@ using CycloneDdsInstanceState = CycloneDDS.Runtime.DdsInstanceState;
 
 namespace ModuleHost.Network.Cyclone.Services
 {
-    public class CycloneDataReader<T, U> : IDataReader where U : struct
+    public class CycloneDataReader<T> : IDataReader where T : struct
     {
-        private readonly DdsReader<T, U> _reader;
+        private readonly DdsReader<T> _reader;
         private readonly string _topicName;
 
-        public CycloneDataReader(DdsReader<T, U> reader, string topicName)
+        public CycloneDataReader(DdsReader<T> reader, string topicName)
         {
             _reader = reader ?? throw new ArgumentNullException(nameof(reader));
             _topicName = topicName;

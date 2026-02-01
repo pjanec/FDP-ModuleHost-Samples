@@ -9,8 +9,8 @@ namespace ModuleHost.Network.Cyclone.Services
     public class DdsIdAllocator : INetworkIdAllocator
     {
         private readonly DdsWriter<IdRequest> _requestWriter;
-        private readonly DdsReader<IdResponse, IdResponse> _responseReader;
-        private readonly DdsReader<IdStatus, IdStatus> _statusReader;
+        private readonly DdsReader<IdResponse> _responseReader;
+        private readonly DdsReader<IdStatus> _statusReader;
         private readonly string _clientId;
         private long _requestCounter = 0;
         private readonly Queue<long> _availableIds = new();
@@ -27,7 +27,7 @@ namespace ModuleHost.Network.Cyclone.Services
             _requestWriter = new DdsWriter<IdRequest>(participant, "IdAlloc_Request");
             
             // Create response reader (filter by our ClientId)
-            _responseReader = new DdsReader<IdResponse, IdResponse>(participant, "IdAlloc_Response");
+            _responseReader = new DdsReader<IdResponse>(participant, "IdAlloc_Response");
             
             // Note: Filter optimization requires specific QoS or compile-time support, 
             // verifying logic first. Can also just filter in ProcessResponses which is 
@@ -39,7 +39,7 @@ namespace ModuleHost.Network.Cyclone.Services
             // This requires expression tree support in binding. Assuming standard reader for now.
             
             // Create status reader
-            _statusReader = new DdsReader<IdStatus, IdStatus>(participant, "IdAlloc_Status");
+            _statusReader = new DdsReader<IdStatus>(participant, "IdAlloc_Status");
             
             // Initial request
             RequestChunk(CHUNK_SIZE);

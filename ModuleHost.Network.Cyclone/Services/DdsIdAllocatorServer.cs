@@ -12,7 +12,7 @@ namespace ModuleHost.Network.Cyclone.Services
     /// </summary>
     public class DdsIdAllocatorServer : IDisposable
     {
-        private readonly DdsReader<IdRequest, IdRequest> _requestReader;
+        private readonly DdsReader<IdRequest> _requestReader;
         private readonly DdsWriter<IdResponse> _responseWriter;
         private readonly DdsWriter<IdStatus> _statusWriter;
         
@@ -21,7 +21,7 @@ namespace ModuleHost.Network.Cyclone.Services
 
         public DdsIdAllocatorServer(DdsParticipant participant)
         {
-            _requestReader = new DdsReader<IdRequest, IdRequest>(participant, "IdAlloc_Request");
+            _requestReader = new DdsReader<IdRequest>(participant, "IdAlloc_Request");
             _responseWriter = new DdsWriter<IdResponse>(participant, "IdAlloc_Response");
             _statusWriter = new DdsWriter<IdStatus>(participant, "IdAlloc_Status");
             
