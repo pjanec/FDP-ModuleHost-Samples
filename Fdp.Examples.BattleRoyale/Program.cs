@@ -8,6 +8,11 @@ using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
 using ModuleHost.Core.ELM;
 using ModuleHost.Network.Cyclone.Modules;
+using ModuleHost.Network.Cyclone.Services;
+using ModuleHost.Network.Cyclone.Translators;
+using ModuleHost.Network.Cyclone.Topics;
+using ModuleHost.Network.Cyclone.Systems;
+using CycloneDDS.Runtime;
 
 namespace Fdp.Examples.BattleRoyale;
 
@@ -45,6 +50,29 @@ class Program
         
         moduleHost.RegisterModule(gateway);
         Console.WriteLine("✓ Registered Cyclone NetworkGatewayModule");
+
+        // Manual setup of Cyclone Egress System (Global)
+        var participant = new DdsParticipant(domainId: 0);
+        var nodeMapper = new NodeIdMapper(0, LocalNodeId);
+        var typeMapper = new TypeIdMapper();
+        var entityMap = new NetworkEntityMap();
+
+        var masterTranslator = new EntityMasterTranslator(entityMap, nodeMapper, typeMapper);
+        var stateTranslator = new EntityStateTranslator(entityMap);
+
+        var masterWriter = new DdsWriter<EntityMasterTopic>(participant, "EntityMaster");
+        var stateWriter = new DdsWriter<EntityStateTopic>(participant, "EntityState");
+
+        var egressSystem = new CycloneEgressSystem(
+            new IDescriptorTranslator[] { masterTranslator, stateTranslator },
+            new IDataWriter[] {
+                new CycloneDataWriter<EntityMasterTopic>(masterWriter, "EntityMaster"),
+                new CycloneDataWriter<EntityStateTopic>(stateWriter, "EntityState")
+            }
+        );
+
+        moduleHost.RegisterGlobalSystem(egressSystem);
+        Console.WriteLine("✓ Registered CycloneEgressSystem (Global)");
 
         // Register Sync System (Bridging Local <-> Network)
         moduleHost.RegisterGlobalSystem(new NetworkSyncSystem());

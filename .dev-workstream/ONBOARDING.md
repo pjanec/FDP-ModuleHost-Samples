@@ -12,7 +12,7 @@ The repository contains two main solution areas:
 
 - **`ModuleHost.sln`**: The core engine solution.
   - Location: `ModuleHost/`
-  - Contains: `ModuleHost.Core`, `Fdp.Kernel`, and Core Unit Tests.
+  - Contains: `ModuleHost.Core`, `Fdp.Kernel`, `ModuleHost.Network.Cyclone`, and `Fdp.Modules.Geographic`.
   - **Primary Workspace** for extraction mechanism.
 
 - **`Samples.sln`**: The example applications solution.
@@ -20,7 +20,15 @@ The repository contains two main solution areas:
   - Contains: `Fdp.Examples.*`, `CarKinem`, and references to Core.
   - **Validation Workspace** to ensure changes don't break consumers.
 
-### 2. External Dependencies
+### 2. Architecture Overview
+The project follows a **3-Layer Architecture**:
+1.  **Kernel Layer** (`ModuleHost.Core`): Generic ECS engine. No domain logic.
+2.  **Plugin Layer**:
+    - `ModuleHost.Network.Cyclone`: CycloneDDS-based networking.
+    - `Fdp.Modules.Geographic`: Geospatial transforms.
+3.  **Application Layer** (`Fdp.Examples.*`): Domain-specific logic and component wiring.
+
+### 3. External Dependencies
 - **FastCycloneDDS**: The project references `FastCycloneDDS` components.
   - Ensure `..\FastCycloneDDS` or related paths are accessible if you need to debug dependencies, though mostly they are referenced via project or NuGet.
 - **FD**: `fd` is available for file searching.
@@ -34,7 +42,7 @@ The repository contains two main solution areas:
 Always verify both solutions build cleanly:
 
 ```powershell
-# Build Core Engine
+# Build Core Engine & Plugins
 dotnet build ModuleHost/ModuleHost.sln
 
 # Build Examples (Validates consumers)
@@ -45,29 +53,26 @@ dotnet build Samples.sln
 We use `xUnit` for testing. You must ensure tests pass in **both** scopes.
 
 ```powershell
-# Run Core Tests (The primary suite for extraction work)
-dotnet test ModuleHost/ModuleHost.sln
-
-# Run Integration/Example Tests
-dotnet test Samples.sln
+# Run All Tests (Recommended)
+dotnet test Samples.sln --nologo --verbosity minimal
 ```
 
 > **💡 Pro Tip:** Use the "Smart Terminal" workflow to filter test output:
 > ```powershell
-> dotnet test ModuleHost/ModuleHost.sln --nologo --verbosity minimal
+> dotnet test ModuleHost/ModuleHost.sln --filter "FullyQualifiedName~Cyclone" --nologo --verbosity minimal
 > ```
 
 ---
 
-## 🛠️ The Extraction Mission
+## 🛠️ The Extraction Mission (Completed)
 
-We are refactoring `ModuleHost.Core` to be a generic game engine kernel.
-**Your Goal:** Remove domain-specific (DDS, Geographic, Concrete Components) code from Core and move them to plugins/modules.
+We have successfully refactored `ModuleHost.Core` to be a generic game engine kernel.
+**Current Goal:** Maintain the clean architecture and build new features (like Demo applications) on top of the plugins.
 
 ### Key Documents (Must Read)
-1. **[EXTRACTION-TASK-TRACKER.md](../docs/EXTRACTION-TASK-TRACKER.md)**: The master plan.
-2. **[EXTRACTION-DESIGN.md](../docs/EXTRACTION-DESIGN.md)**: The architectural vision.
-3. **[EXTRACTION-REFINEMENTS.md](../docs/EXTRACTION-REFINEMENTS.md)**: Critical technical details and warnings.
+1.  **[ARCHITECTURE-NOTES.md](../docs/ARCHITECTURE-NOTES.md)**: The definitive guide to the new architecture.
+2.  **[EXTRACTION-TASK-TRACKER.md](../docs/EXTRACTION-TASK-TRACKER.md)**: History of the refactoring work.
+3.  **Module READMEs**: Read `README.md` in each project root for specific details.
 
 ---
 
@@ -84,9 +89,9 @@ We use a **Batch System** for tasks.
 - **Test Coverage:** Explicit proof of testing (names of tests added).
 
 ### ⚠️ Quality Standards
-- **Zero Regressions:** Existing tests must pass.
-- **Namespace Hygiene:** Verify namespaces match the new folder structure.
-- **Test Reality:** Tests must verify *behavior* (values, state changes), not just compilation.
+- **Zero Regressions:** All existing tests must pass.
+- **Architecture Compliance:** Do NOT add domain logic (Position, Velocity) back into `ModuleHost.Core`.
+- **Plugin Isolation:** Plugins should not depend on each other directly unless via Core abstractions.
 
 ---
 
