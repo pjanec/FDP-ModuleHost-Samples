@@ -99,8 +99,11 @@ namespace ModuleHost.Network.Cyclone.Services
             // Zero-copy read
             using var scope = _responseReader.Take();
             
-            foreach (var response in scope)
+            foreach (var sample in scope)
             {
+                if (!sample.IsValid) continue;
+                var response = sample.Data;
+
                 // Only process responses for us or broadcast?
                 // IdResponse uses ClientId as key.
                 if (response.ClientId != _clientId && !string.IsNullOrEmpty(response.ClientId))

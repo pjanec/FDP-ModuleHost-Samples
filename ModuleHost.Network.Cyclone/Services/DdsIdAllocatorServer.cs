@@ -34,7 +34,8 @@ namespace ModuleHost.Network.Cyclone.Services
             
             foreach (var request in scope)
             {
-                HandleRequest(request);
+                if (request.IsValid)
+                    HandleRequest(request.Data);
             }
         }
 

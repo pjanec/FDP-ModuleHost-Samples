@@ -49,12 +49,14 @@ class Program
         */
         
         var nodeMapper = new NodeIdMapper(localDomain: 1, localInstance: instanceId);
+        int localInternalId = nodeMapper.LocalNodeId;
+
         // Using "Node_X" as client ID for Allocator
         var idAllocator = new DdsIdAllocator(participant, $"Node_{instanceId}");
         
         // Simple static topology: 100 and 200 know each other. 
         // We assume 100 and 200 are the only nodes.
-        var topology = new StaticNetworkTopology(localNodeId: instanceId, new int[] { 100, 200 }); // Assuming nodeIds match instanceIds for simplicity
+        var topology = new StaticNetworkTopology(localNodeId: localInternalId, new int[] { 100, 200 }); // Assuming nodeIds match instanceIds for simplicity
         
         // Entity Lifecycle Module
         var elm = new EntityLifecycleModule(Array.Empty<int>()); 
@@ -73,7 +75,7 @@ class Program
         kernel.RegisterModule(geoModule);
         
         // Sync System - Bridging Local components to Network components
-        kernel.RegisterGlobalSystem(new DemoNetworkSyncSystem(instanceId));
+        kernel.RegisterGlobalSystem(new DemoNetworkSyncSystem(localInternalId));
 
         kernel.Initialize();
         
@@ -82,7 +84,7 @@ class Program
         await Task.Delay(2000);
         
         // Spawn local entities
-        SpawnLocalEntities(world, instanceId);
+        SpawnLocalEntities(world, instanceId, localInternalId);
         
         Console.WriteLine($"[SPAWN] Created 3 local entities");
         Console.WriteLine();
@@ -103,7 +105,7 @@ class Program
             
             if (frameCount % 10 == 0)
             {
-                PrintStatus(world, nodeMapper, instanceId);
+                PrintStatus(world, nodeMapper, localInternalId);
             }
             
             await Task.Delay(100);
@@ -140,7 +142,7 @@ class Program
         world.RegisterComponent<NetworkedEntity>(); // Local component for demo tracking
     }
 
-    static void SpawnLocalEntities(EntityRepository world, int instanceId)
+    static void SpawnLocalEntities(EntityRepository world, int instanceId, int localInternalId)
     {
         var types = new[] { ("Tank", 1), ("Jeep", 2), ("Helicopter", 3) };
         
@@ -179,19 +181,26 @@ class Program
             });
             world.AddComponent(entity, new ModuleHost.Core.Network.NetworkOwnership // Fix: Core namespace
             { 
-                PrimaryOwnerId = instanceId, // We own it
-                LocalNodeId = instanceId 
+                PrimaryOwnerId = localInternalId, // We own it
+                LocalNodeId = localInternalId 
             });
             world.AddComponent(entity, new ModuleHost.Network.Cyclone.Components.NetworkPosition 
             { 
                 Value = world.GetComponent<Position>(entity).LocalCartesian 
             });
             
+            // Fix: Add NetworkSpawnRequest so EntityMasterTranslator picks it up for publication
+            world.AddComponent(entity, new ModuleHost.Network.Cyclone.Components.NetworkSpawnRequest 
+            { 
+                DisType = (ulong)typeId,
+                OwnerId = (ulong)instanceId
+            });
+            
             // Add Demo tracking component
             world.AddComponent(entity, new NetworkedEntity 
             { 
                 NetworkId = (long)instanceId * 1000 + entity.Index,
-                OwnerNodeId = instanceId,
+                OwnerNodeId = localInternalId,
                 IsLocallyOwned = true
             });
         }
