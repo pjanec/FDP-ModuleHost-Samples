@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Fdp.Kernel;
+// using Fdp.Interfaces; // Ambiguous INetworkTopology
+using Moq;
 using ModuleHost.Core.Abstractions;
-using ModuleHost.Core.ELM;
+using FDP.Toolkit.Lifecycle;
+using FDP.Toolkit.Lifecycle.Events;
 using ModuleHost.Core.Network;
 using ModuleHost.Core.Network.Interfaces;
 using Xunit;
@@ -30,7 +33,8 @@ namespace ModuleHost.Network.Cyclone.Tests.Modules
             // NetworkIdentity removed from Core
             
             // Create ELM with gateway as participating module
-            _elm = new EntityLifecycleModule(new[] { MODULE_ID }, MODULE_ID);
+            var mockTkb = new Mock<Fdp.Interfaces.ITkbDatabase>();
+            _elm = new EntityLifecycleModule(mockTkb.Object, new[] { MODULE_ID }, MODULE_ID);
             _topology = new MockNetworkTopology(LOCAL_NODE_ID);
             _gateway = new CycloneGateway(
                 MODULE_ID,

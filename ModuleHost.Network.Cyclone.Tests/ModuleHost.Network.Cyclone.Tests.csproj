@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ModuleHost.Network.Cyclone\ModuleHost.Network.Cyclone.csproj" />
+    <ProjectReference Include="..\ModuleHost\FDP.Toolkit.Lifecycle\FDP.Toolkit.Lifecycle.csproj" />
+    <ProjectReference Include="..\ModuleHost\FDP.Toolkit.Replication\FDP.Toolkit.Replication.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -25,7 +25,7 @@ namespace ModuleHost.Network.Cyclone.Tests.Services
             _participant?.Dispose();
         }
 
-        private (DdsWriter<IdResponse>, DdsReader<IdRequest, IdRequest>) CreateMockServer()
+        private (DdsWriter<IdResponse>, DdsReader<IdRequest>) CreateMockServer()
         {
             // Server reads Requests and writes Responses
             // Note: Topic names in DdsIdAllocator are hardcoded "IdAlloc_Request", etc.
@@ -36,7 +36,7 @@ namespace ModuleHost.Network.Cyclone.Tests.Services
             // For tests, we might collide if parallel.
             
             var writer = new DdsWriter<IdResponse>(_participant, "IdAlloc_Response");
-            var reader = new DdsReader<IdRequest, IdRequest>(_participant, "IdAlloc_Request");
+            var reader = new DdsReader<IdRequest>(_participant, "IdAlloc_Request");
             return (writer, reader);
         }
 
@@ -55,8 +55,10 @@ namespace ModuleHost.Network.Cyclone.Tests.Services
             for (int i = 0; i < 200; i++) // Poll for request
             {
                 using var scope = serverReqReader.Take();
-                foreach (var req in scope)
+                foreach (var sample in scope)
                 {
+                    // if (!sample.HasData) continue;
+                    var req = sample.Data;
                     request = req;
                     if (request.ClientId == clientId)
                     {
@@ -108,8 +110,10 @@ namespace ModuleHost.Network.Cyclone.Tests.Services
             for (int i = 0; i < 20; i++)
             {
                 using var scope = serverReqReader.Take();
-                foreach (var req in scope)
+                foreach (var sample in scope)
                 {
+                    // if (!sample.HasData) continue;
+                    var req = sample.Data;
                     if (req.Type == EIdRequestType.Req_Reset)
                     {
                         request = req;
@@ -169,8 +173,10 @@ namespace ModuleHost.Network.Cyclone.Tests.Services
                 for (int i = 0; i < 50; i++)
                 {
                     using var scope = serverReqReader.Take();
-                    foreach (var req in scope)
+                    foreach (var sample in scope)
                     {
+                        // if (!sample.HasData) continue;
+                        var req = sample.Data;
                         if (req.ClientId == clientId && req.Type == EIdRequestType.Req_Alloc) // New alloc request
                         {
                             reRequestReceived = true;

@@ -1,22 +1,59 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Numerics;
+using System.Collections.Generic;
 using Fdp.Kernel;
+using Fdp.Interfaces;
 using Fdp.Examples.NetworkDemo.Components;
+using Fdp.Examples.NetworkDemo.Configuration;
+using Fdp.Examples.NetworkDemo.Descriptors;
 using Fdp.Modules.Geographic;
 using Fdp.Modules.Geographic.Transforms;
 using ModuleHost.Core;
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
 using ModuleHost.Core.Network.Interfaces;
-using ModuleHost.Core.ELM;
+using FDP.Toolkit.Lifecycle;
+using FDP.Toolkit.Lifecycle.Events;
+using Fdp.Toolkit.Tkb;
+using FDP.Toolkit.Replication.Components;
 using ModuleHost.Network.Cyclone;
 using ModuleHost.Network.Cyclone.Services;
 using ModuleHost.Network.Cyclone.Modules;
+using ModuleHost.Network.Cyclone.Providers;
 using CycloneDDS.Runtime;
 using CycloneDDS.Runtime.Tracking;
 
 namespace Fdp.Examples.NetworkDemo;
+
+public class SerializationRegistry : ISerializationRegistry
+{
+    private readonly Dictionary<long, ISerializationProvider> _providers = new();
+
+    public void Register(long descriptorOrdinal, ISerializationProvider provider)
+    {
+        _providers[descriptorOrdinal] = provider;
+    }
+
+    public ISerializationProvider Get(long descriptorOrdinal)
+    {
+        return _providers[descriptorOrdinal];
+    }
+
+    public bool TryGet(long descriptorOrdinal, out ISerializationProvider provider)
+    {
+        return _providers.TryGetValue(descriptorOrdinal, out provider);
+    }
+}
+
+[UpdateInPhase(SystemPhase.Simulation)]
+public class ComponentSystemWrapper : IModuleSystem
+{
+    private readonly ComponentSystem _sys;
+    public ComponentSystemWrapper(ComponentSystem sys) => _sys = sys;
+    public void Execute(ISimulationView view, float dt) => _sys.Run();
+}
 
 class Program
 {
@@ -33,49 +70,89 @@ class Program
         
         // Setup
         var world = new EntityRepository();
+        // RegisterComponents(world); // No longer needed, TKB handles it? 
+        // We still need to register types for queries if TKB doesn't do it globally on Register?
+        // Use manual registration for safety
         RegisterComponents(world);
-        
+
         // Create kernel with event accumulator
-        var kernel = new ModuleHostKernel(world, new EventAccumulator());
+        var accumulator = new EventAccumulator();
+        var kernel = new ModuleHostKernel(world, accumulator);
         
         // Network setup
         var participant = new DdsParticipant(domainId: 0);
-        /*
-        participant.EnableSenderTracking(new SenderIdentityConfig
-        {
-            AppDomainId = 1,
-            AppInstanceId = instanceId
-        });
-        */
         
+        // Mapper helpers
+        int GetInternalId(int instance) => new NodeIdMapper(localDomain: 1, localInstance: instance).LocalNodeId;
+
+        // Current Node
         var nodeMapper = new NodeIdMapper(localDomain: 1, localInstance: instanceId);
         int localInternalId = nodeMapper.LocalNodeId;
 
         // Using "Node_X" as client ID for Allocator
         var idAllocator = new DdsIdAllocator(participant, $"Node_{instanceId}");
         
-        // Simple static topology: 100 and 200 know each other. 
-        // We assume 100 and 200 are the only nodes.
-        var topology = new StaticNetworkTopology(localNodeId: localInternalId, new int[] { 100, 200 }); // Assuming nodeIds match instanceIds for simplicity
+        // Topology - Map all expected peers
+        var peerInstances = new int[] { 100, 200 };
+        var peerInternalIds = peerInstances.Select(GetInternalId).ToArray();
+        
+        var topology = new StaticNetworkTopology(localNodeId: localInternalId, peerInternalIds);
+        
+        // --- BATCH-11 Integration ---
+        
+        // 1. Instantiate TkbDatabase
+        var tkb = new TkbDatabase();
+        world.SetSingletonManaged<Fdp.Interfaces.ITkbDatabase>(tkb);
+        
+        // 2. Instantiate SerializationRegistry
+        var serializationRegistry = new SerializationRegistry();
+        world.SetSingletonManaged<ISerializationRegistry>(serializationRegistry);
+        
+        // 3. Load DemoTkbSetup
+        var setup = new DemoTkbSetup();
+        setup.Load(tkb);
+        
+        // 4. Register Serialization Providers
+        // Physics Descriptor -> NetworkPosition
+        serializationRegistry.Register(DemoDescriptors.Physics, new CycloneSerializationProvider<NetworkPosition>());
+        // Master Descriptor -> NetworkVelocity (as an example of secondary channel)
+        serializationRegistry.Register(DemoDescriptors.Master, new CycloneSerializationProvider<NetworkVelocity>());
         
         // Entity Lifecycle Module
-        var elm = new EntityLifecycleModule(Array.Empty<int>()); 
+        var elm = new EntityLifecycleModule(tkb, Array.Empty<int>()); 
         kernel.RegisterModule(elm);
 
+        // Pass SerializationRegistry to CycloneNetworkModule
         var networkModule = new CycloneNetworkModule(
-            participant, nodeMapper, idAllocator, topology, elm
+            participant, nodeMapper, idAllocator, topology, elm, serializationRegistry
         );
         kernel.RegisterModule(networkModule);
         
-        // Geographic module (origin: Berlin)
+        // Geographic module (origin: Berlin) - Keeping from legacy
         var wgs84 = new WGS84Transform();
         wgs84.SetOrigin(52.52, 13.405, 0);
         
         var geoModule = new GeographicModule(wgs84);
         kernel.RegisterModule(geoModule);
         
-        // Sync System - Bridging Local components to Network components
-        kernel.RegisterGlobalSystem(new DemoNetworkSyncSystem(localInternalId));
+        // Register Demo Topology Systems
+        foreach(var sys in DemoTopology.GetSystems(tkb, elm))
+        {
+            if (sys is IModuleSystem ms)
+            {
+               kernel.RegisterGlobalSystem(ms);
+            }
+            else if (sys is ComponentSystem cs)
+            {
+               cs.Create(world);
+               kernel.RegisterGlobalSystem(new ComponentSystemWrapper(cs));
+            }
+        }
+        
+        // Time Controller
+        var bus = new FdpEventBus();
+        var timeController = new FDP.Toolkit.Time.Controllers.MasterTimeController(bus, null);
+        kernel.SetTimeController(timeController);
 
         kernel.Initialize();
         
@@ -83,10 +160,10 @@ class Program
         Console.WriteLine("[INIT] Waiting for peer discovery...");
         await Task.Delay(2000);
         
-        // Spawn local entities
-        SpawnLocalEntities(world, instanceId, localInternalId);
+        // Spawn local entities using TKB
+        SpawnLocalEntities(world, tkb, localInternalId, localInternalId);
         
-        Console.WriteLine($"[SPAWN] Created 3 local entities");
+        Console.WriteLine($"[SPAWN] Created local entities");
         Console.WriteLine();
         Console.WriteLine("==========================================");
         Console.WriteLine("           Monitoring Network             ");
@@ -115,94 +192,73 @@ class Program
         Console.WriteLine();
         Console.WriteLine("[SHUTDOWN] Demo complete");
         
-        // kernel.Shutdown(); // If Shutdown exists
+        // kernel.Shutdown(); 
         participant.Dispose();
     }
 
     static void RegisterComponents(EntityRepository world)
     {
+        // Legacy components
         world.RegisterComponent<Position>();
         world.RegisterComponent<PositionGeodetic>();
         world.RegisterComponent<Velocity>();
         world.RegisterComponent<EntityType>();
         
-        // Register standard network components handled by Cyclone module
-        // Manual registration
-        world.RegisterComponent<ModuleHost.Network.Cyclone.Components.NetworkPosition>();
-        world.RegisterComponent<ModuleHost.Network.Cyclone.Components.NetworkVelocity>();
+        // Toolkit components
+        world.RegisterComponent<NetworkPosition>();
+        world.RegisterComponent<NetworkVelocity>();
         world.RegisterComponent<ModuleHost.Network.Cyclone.Components.NetworkOrientation>();
-        // Fix: Use Core namespace for Ownership
         world.RegisterComponent<ModuleHost.Core.Network.NetworkOwnership>();
-        world.RegisterComponent<ModuleHost.Network.Cyclone.Components.NetworkIdentity>();
-        world.RegisterComponent<ModuleHost.Network.Cyclone.Components.NetworkSpawnRequest>();
-        // Fix: Use Core namespace for PendingAck
+        world.RegisterComponent<NetworkIdentity>();
+        world.RegisterComponent<NetworkSpawnRequest>();
         world.RegisterComponent<ModuleHost.Core.Network.PendingNetworkAck>();
         world.RegisterComponent<ModuleHost.Core.Network.ForceNetworkPublish>();
 
-        world.RegisterComponent<NetworkedEntity>(); // Local component for demo tracking
+        // Demo tracking
+        world.RegisterComponent<NetworkedEntity>(); 
     }
 
-    static void SpawnLocalEntities(EntityRepository world, int instanceId, int localInternalId)
+    static void SpawnLocalEntities(EntityRepository world, TkbDatabase tkb, int instanceId, int localInternalId)
     {
-        var types = new[] { ("Tank", 1), ("Jeep", 2), ("Helicopter", 3) };
-        
-        foreach (var (name, typeId) in types)
+        // Use TKB to spawn
+        if (tkb.TryGetByName("Tank", out var template))
         {
-            var entity = world.CreateEntity();
-            
-            world.AddComponent(entity, new EntityType { Name = name, TypeId = typeId });
-            world.AddComponent(entity, new Position 
-            { 
-                LocalCartesian = new Vector3(
-                    Random.Shared.Next(-50, 50),
-                    Random.Shared.Next(-50, 50),
-                    0
-                )
-            });
-            world.AddComponent(entity, new PositionGeodetic
+            for(int i=0; i<3; i++)
             {
-                Latitude = 52.52 + Random.Shared.NextDouble() * 0.01,
-                Longitude = 13.405 + Random.Shared.NextDouble() * 0.01,
-                Altitude = 0
-            });
-            world.AddComponent(entity, new Velocity 
-            { 
-                Value = new Vector3(10, 5, 0) 
-            });
-
-            // Mark for network
-            // In a real system, we'd use EntityLifecycleModule to request spawn.
-            // Here we assume "Authority" creation pattern (we create locally, then tell network).
-            
-            // Add Network Components so Egress picks it up
-            world.AddComponent(entity, new ModuleHost.Network.Cyclone.Components.NetworkIdentity 
-            { 
-                Value = (long)instanceId * 1000 + entity.Index // Fix: .Value instead of .NetworkId
-            });
-            world.AddComponent(entity, new ModuleHost.Core.Network.NetworkOwnership // Fix: Core namespace
-            { 
-                PrimaryOwnerId = localInternalId, // We own it
-                LocalNodeId = localInternalId 
-            });
-            world.AddComponent(entity, new ModuleHost.Network.Cyclone.Components.NetworkPosition 
-            { 
-                Value = world.GetComponent<Position>(entity).LocalCartesian 
-            });
-            
-            // Fix: Add NetworkSpawnRequest so EntityMasterTranslator picks it up for publication
-            world.AddComponent(entity, new ModuleHost.Network.Cyclone.Components.NetworkSpawnRequest 
-            { 
-                DisType = (ulong)typeId,
-                OwnerId = (ulong)instanceId
-            });
-            
-            // Add Demo tracking component
-            world.AddComponent(entity, new NetworkedEntity 
-            { 
-                NetworkId = (long)instanceId * 1000 + entity.Index,
-                OwnerNodeId = localInternalId,
-                IsLocallyOwned = true
-            });
+                var entity = world.CreateEntity();
+                template.ApplyTo(world, entity);
+                
+                // Override/Set specific properties
+                
+                // 1. Identity
+                var netId = (long)instanceId * 1000 + entity.Index;
+                world.SetComponent(entity, new NetworkIdentity { Value = netId });
+                
+                // 2. Ownership
+                world.AddComponent(entity, new ModuleHost.Core.Network.NetworkOwnership 
+                { 
+                    PrimaryOwnerId = localInternalId, 
+                    LocalNodeId = localInternalId 
+                });
+                
+                // 3. Initial Position/Vel
+                world.SetComponent(entity, new NetworkPosition 
+                { 
+                    Value = new Vector3(
+                        Random.Shared.Next(-50, 50),
+                        Random.Shared.Next(-50, 50),
+                        0
+                    )
+                });
+                
+                world.SetComponent(entity, new NetworkVelocity 
+                { 
+                    Value = new Vector3(10, 5, 0) // Moving
+                });
+                
+                // Add demo visual components
+                world.AddComponent(entity, new EntityType { Name = "Tank", TypeId = 1 });
+            }
         }
     }
 
@@ -210,8 +266,8 @@ class Program
     {
         // Query entities that have NetworkIdentity (synced entities)
         var query = world.Query()
-            .With<ModuleHost.Network.Cyclone.Components.NetworkIdentity>()
-            .With<ModuleHost.Core.Network.NetworkOwnership>() // Fix: Core namespace
+            .With<NetworkIdentity>()
+            .With<ModuleHost.Core.Network.NetworkOwnership>()
             .Build();
 
         Console.WriteLine($"[STATUS] Frame snapshot:");
@@ -221,21 +277,20 @@ class Program
         
         foreach (var e in query)
         {
-             ref readonly var netId = ref world.GetComponentRO<ModuleHost.Network.Cyclone.Components.NetworkIdentity>(e);
+             ref readonly var netId = ref world.GetComponentRO<NetworkIdentity>(e);
              ref readonly var ownership = ref world.GetComponentRO<ModuleHost.Core.Network.NetworkOwnership>(e);
              
-             // Try to get EntityType if available (might not be synced automatically for remote)
              string typeName = "Unknown";
              if (world.HasComponent<EntityType>(e))
              {
                  typeName = world.GetComponent<EntityType>(e).Name;
              }
              
-             // Try get position
+             // Get position from NetworkPosition (Single Source of Truth)
              Vector3 pos = Vector3.Zero;
-             if (world.HasComponent<ModuleHost.Network.Cyclone.Components.NetworkPosition>(e))
+             if (world.HasComponent<NetworkPosition>(e))
              {
-                 pos = world.GetComponent<ModuleHost.Network.Cyclone.Components.NetworkPosition>(e).Value;
+                 pos = world.GetComponent<NetworkPosition>(e).Value;
              }
 
              bool isLocal = ownership.PrimaryOwnerId == localInstanceId;
@@ -245,48 +300,9 @@ class Program
 
              Console.WriteLine($"  [{ownerStr}] {typeName,-12} " +
                             $"Pos: ({pos.X:F1}, {pos.Y:F1}, {pos.Z:F1}) " +
-                            $"NetID: {netId.Value} "); // Fix: .Value
+                            $"NetID: {netId.Value} ");
         }
         
         Console.WriteLine($"[STATUS] Local: {localCount}, Remote: {remoteCount}");
-        
-        // Testable output marker
-        Console.WriteLine($"TEST_OUTPUT: LOCAL={localCount} REMOTE={remoteCount}");
-        Console.WriteLine();
-    }
-}
-
-// System to sync Local -> Net logic for demo
-[UpdateInPhase(SystemPhase.Simulation)]
-public class DemoNetworkSyncSystem : IModuleSystem
-{
-    private int _localNodeId;
-    public DemoNetworkSyncSystem(int localNodeId) { _localNodeId = localNodeId; }
-
-    public void Execute(ISimulationView view, float deltaTime)
-    {
-        var cmd = view.GetCommandBuffer();
-        var query = view.Query()
-            .With<Position>()
-            .With<ModuleHost.Network.Cyclone.Components.NetworkPosition>()
-            .With<ModuleHost.Core.Network.NetworkOwnership>() // Fix: Core namespace
-            .Build();
-            
-        foreach (var entity in query)
-        {
-            ref readonly var ownership = ref view.GetComponentRO<ModuleHost.Core.Network.NetworkOwnership>(entity); // Fix: Core namespace
-            if (ownership.PrimaryOwnerId == _localNodeId)
-            {
-                // Local -> Network
-                ref readonly var pos = ref view.GetComponentRO<Position>(entity);
-                cmd.SetComponent(entity, new ModuleHost.Network.Cyclone.Components.NetworkPosition { Value = pos.LocalCartesian });
-            }
-            else
-            {
-                // Network -> Local (For visualization)
-                ref readonly var netPos = ref view.GetComponentRO<ModuleHost.Network.Cyclone.Components.NetworkPosition>(entity);
-                cmd.SetComponent(entity, new Position { LocalCartesian = netPos.Value });
-            }
-        }
     }
 }

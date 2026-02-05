@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using Fdp.Kernel;
 using ModuleHost.Core.Abstractions;
-using ModuleHost.Core.ELM;
+using FDP.Toolkit.Lifecycle;
+using FDP.Toolkit.Lifecycle.Events;
 using ModuleHost.Core.Network.Interfaces;
 using ModuleHost.Core.Network;
 

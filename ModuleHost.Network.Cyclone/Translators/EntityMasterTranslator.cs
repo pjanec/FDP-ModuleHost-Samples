@@ -4,6 +4,7 @@ using Fdp.Kernel;
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
 using ModuleHost.Network.Cyclone.Components;
+using FDP.Toolkit.Replication.Components;
 using ModuleHost.Network.Cyclone.Services;
 using ModuleHost.Network.Cyclone.Topics;
 

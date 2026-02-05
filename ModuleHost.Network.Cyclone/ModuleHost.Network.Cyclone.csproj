@@ -9,6 +9,8 @@
     <ProjectReference Include="..\ModuleHost\ModuleHost.Core\ModuleHost.Core.csproj" />
     <ProjectReference Include="..\FastCycloneDdsCsharpBindings\src\CycloneDDS.Runtime\CycloneDDS.Runtime.csproj" />
     <ProjectReference Include="..\FastCycloneDdsCsharpBindings\src\CycloneDDS.Schema\CycloneDDS.Schema.csproj" />
+    <ProjectReference Include="..\ModuleHost\FDP.Toolkit.Lifecycle\FDP.Toolkit.Lifecycle.csproj" />
+    <ProjectReference Include="..\ModuleHost\FDP.Toolkit.Replication\FDP.Toolkit.Replication.csproj" />
   </ItemGroup>
   <Import Project="..\FastCycloneDdsCsharpBindings\tools\CycloneDDS.CodeGen\CycloneDDS.targets" />
 </Project>

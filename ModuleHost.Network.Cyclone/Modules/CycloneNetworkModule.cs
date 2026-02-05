@@ -1,14 +1,18 @@
 using System;
 using CycloneDDS.Runtime;
 using Fdp.Kernel;
+// using Fdp.Interfaces; // Removed to avoid ambiguity
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
 using ModuleHost.Core.Network.Interfaces;
-using ModuleHost.Core.ELM;
+using FDP.Toolkit.Lifecycle;
+using FDP.Toolkit.Lifecycle.Events;
 using ModuleHost.Network.Cyclone.Services;
 using ModuleHost.Network.Cyclone.Translators;
 using ModuleHost.Network.Cyclone.Topics;
 using ModuleHost.Network.Cyclone.Systems;
+using ModuleHost.Network.Cyclone.Providers;
+using FDP.Toolkit.Replication.Components;
 
 namespace ModuleHost.Network.Cyclone.Modules
 {
@@ -47,7 +51,8 @@ namespace ModuleHost.Network.Cyclone.Modules
             NodeIdMapper nodeMapper,
             INetworkIdAllocator idAllocator,
             INetworkTopology topology,
-            EntityLifecycleModule elm)
+            EntityLifecycleModule elm,
+            Fdp.Interfaces.ISerializationRegistry? serializationRegistry = null)
         {
             _participant = participant ?? throw new ArgumentNullException(nameof(participant));
             _nodeMapper = nodeMapper ?? throw new ArgumentNullException(nameof(nodeMapper));
@@ -58,6 +63,16 @@ namespace ModuleHost.Network.Cyclone.Modules
             // Initialize Services
             _entityMap = new NetworkEntityMap();
             _typeMapper = new TypeIdMapper();
+
+            if (serializationRegistry != null)
+            {
+                // Register Serialization Providers
+                // Using arbitrary ordinals for now as placeholder for FDP-006 IDs
+                serializationRegistry.Register(1001, new CycloneSerializationProvider<NetworkPosition>());
+                serializationRegistry.Register(1002, new CycloneSerializationProvider<NetworkVelocity>());
+                serializationRegistry.Register(1003, new CycloneSerializationProvider<NetworkIdentity>());
+                serializationRegistry.Register(1004, new CycloneSerializationProvider<NetworkSpawnRequest>());
+            }
 
             // Initialize Translators
             _masterTranslator = new EntityMasterTranslator(_entityMap, _nodeMapper, _typeMapper);
@@ -120,10 +135,13 @@ namespace ModuleHost.Network.Cyclone.Modules
         
         public void Execute(ISimulationView view, float deltaTime)
         {
+            // Migrated to Toolkit Replication. Legacy loop disabled.
+            /*
             for(int i=0; i<_translators.Length; i++)
             {
                  _translators[i].PollIngress(_readers[i], view.GetCommandBuffer(), view);
             }
+            */
         }
     }
 }

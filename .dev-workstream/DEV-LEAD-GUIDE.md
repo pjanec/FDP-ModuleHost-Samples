@@ -371,6 +371,11 @@ Always include sections on:
 
 When developer submits `.dev-workstream/reports/BATCH-XX-REPORT.md`:
 
+Basic mind set when reviewing:
+ - believe nothing, verify everything thoroughly
+ - check especially if the unit tests check what the design wants
+
+
 #### Step 1: Read the Report (5-10 minutes)
 
 **Check for:**
