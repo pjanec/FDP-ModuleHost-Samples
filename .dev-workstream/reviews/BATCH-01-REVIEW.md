@@ -2,42 +2,45 @@
 
 **Batch:** BATCH-01  
 **Reviewer:** Development Lead  
-**Date:** 2026-01-30  
+**Date:** 2026-02-06  
 **Status:** ⚠️ NEEDS FIXES
 
 ---
 
 ## Summary
-
-Phase 1 (Foundation) is solid. Projects are created and added to solutions correctly. Interfaces and smoke tests are in place and passing.
-**However**, the batch is incomplete. Phase 2 tasks (Topics & Mapper) were not implemented, and the required test project is missing.
+Kernel foundation (ID reservation, hydration) and basic replication infrastructure (attributes, policy) are implemented. However, critical tests for the Generic Translator are missing, and there is an API violation in the translator implementation.
 
 ---
 
 ## Issues Found
 
-### Issue 1: Incomplete Implementation (Tasks 3 & 4)
+### Issue 1: Missing Tests for GenericDescriptorTranslator
+**File:** `ModuleHost/FDP.Toolkit.Replication.Tests/`
+**Problem:** `GhostProtocolTests.cs` verifies that *if* data is stashed, it gets promoted. However, there are **NO tests** verifying that `GenericDescriptorTranslator.PollIngress` actually stashes data when it encounters a Ghost.
+**Why It Matters:** This is the core logic of the "Ghost Stash" pattern. If the translator applies data directly to a ghost (bypassing the stash), the ghost might activate prematurely with incomplete state.
+**Fix:** Create `GenericDescriptorTranslatorTests.cs` and verify:
+1.  `PollIngress` on Ghost Entity -> Data goes to `BinaryGhostStore` (Stash).
+2.  `PollIngress` on Active Entity -> Data goes to Component (Apply).
 
-**Problem:** The batch instructions explicitly required:
-- Task 3: Define DDS Topics (`NetworkAppId`, `EntityMasterTopic`, etc.)
-- Task 4: NodeIdMapper Service
-**Current State:** The directories `Topics` and `Services` in `ModuleHost.Network.Cyclone` are empty.
+### Issue 2: API Violation (Writing to Read-Only Component)
+**File:** `GenericDescriptorTranslator.cs` (Line 42)
+**Problem:**
+```csharp
+var store = view.GetManagedComponentRO<BinaryGhostStore>(entity);
+store.StashedData[key] = buffer; // Modifying object obtained via RO API!
+```
+**Fix:** Use `GetManagedComponentRW` (or equivalent) when you intend to modify the component. Even if C# allows modifying reference types returned by RO, it violates the ECS contract and may bypass dirty tracking (though `BinaryGhostStore` might not need dirty tracking, it's bad practice).
 
-### Issue 2: Missing Test Project
-
-**Problem:** BATCH-01 Instructions required creating `ModuleHost.Network.Cyclone.Tests` to verify the new logic.
-**Current State:** Project does not exist in `ModuleHost/` solution folder.
+### Issue 3: Incorrect Default Value
+**File:** `RecorderSystem.cs` (Line 30)
+**Problem:** `public int MinRecordableId { get; set; } = 0;`
+**Fix:** Change default to `FdpConfig.SYSTEM_ID_RANGE` (65536) as specified. Users shouldn't have to manually configure safety defaults.
 
 ---
 
 ## Verdict
-
 **Status:** NEEDS FIXES
 
 **Required Actions:**
-1.  Execute **BATCH-01.1** implementation immediately.
-2.  Create the missing test project.
-3.  Implement the missing Topics and NodeIdMapper service.
-4.  Ensure all 15+ expected tests pass.
-
----
+1.  Create `BATCH-01.1` to address the missing tests and API violation.
+2.  Ensure `GenericDescriptorTranslator` is robustly tested before proceeding to Phase 3.

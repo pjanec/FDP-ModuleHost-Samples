@@ -1,100 +1,129 @@
-# BATCH-03: Fix Core & Complete Network Layer
+# BATCH-03: Systems & Integration
 
 **Batch Number:** BATCH-03  
-**Tasks:** FIX-CORE-NET, EXT-2-3  
-**Phase:** Phase 2 (Network Layer Extraction)  
-**Estimated Effort:** 6-8 Hours  
+**Tasks:** FDP-DRP-011, FDP-DRP-012, FDP-DRP-013, FDP-DRP-014, FDP-DRP-015  
+**Phase:** Phase 4 (Systems) & Phase 5 (Integration)  
+**Estimated Effort:** 10-14 hours  
 **Priority:** CRITICAL  
-**Dependencies:** BATCH-02 (Complete)  
+**Dependencies:** BATCH-02
 
 ---
 
 ## 📋 Onboarding & Workflow
 
 ### Developer Instructions
-**Priority Shift:** Before we proceed with extraction, we must stabilize the Core. The reported 13 failures in `ModuleHost.Core.Tests` indicate broken baseline functionality. We cannot extract broken code.
-
-**Your Mission:**
-1.  **Diagnose & Fix** the pre-existing failures in `ModuleHost.Core`.
-2.  **Propagate** any logic fixes to the new `ModuleHost.Network.Cyclone` code (since we copied `NetworkGatewayModule` from Core).
-3.  **Complete** the Network Layer by implementing `DdsIdAllocator`.
+This is the core logic batch. You will implement the systems that make the demo actually work: bridging replay data, synchronizing transforms, handling time, and wiring it all up in `Program.cs`.
 
 ### Required Reading (IN ORDER)
-1.  **[EXTRACTION-REFINEMENTS.md](../../docs/EXTRACTION-REFINEMENTS.md)** - Logic for ID Allocator.
+1.  **Task Definitions:** [`docs/TASK-DETAIL.md`](../../docs/TASK-DETAIL.md) - Specs for tasks 011-015.
+2.  **Design Document:** [`docs/DESIGN.md`](../../docs/DESIGN.md) - Section 9 (Systems) and 10 (Integration).
 
 ### Source Code Location
-- **Fixes:** `ModuleHost/ModuleHost.Core/` & `ModuleHost.Core.Tests/`
-- **Propagation:** `ModuleHost.Network.Cyclone/`
-- **Implementation:** `ModuleHost.Network.Cyclone/Services/DdsIdAllocator.cs`
+- **Systems:** `Fdp.Examples.NetworkDemo/Systems/`
+- **Entry Point:** `Fdp.Examples.NetworkDemo/Program.cs`
+- **Tests:** `Fdp.Examples.NetworkDemo.Tests/`
+
+### Report Submission
+**When done, submit your report to:**  
+`.dev-workstream/reports/BATCH-03-REPORT.md`
 
 ---
 
-## 🔄 MANDATORY WORKFLOW: Fix-Then-Feature
+## 🔄 MANDATORY WORKFLOW: Test-Driven Task Progression
 
-1.  **Task 1 (Fix):** Analyze Core Failures → Fix Logic → **Core Tests Pass** ✅
-2.  **Task 2 (Sync):** Apply same fixes to Cyclone `NetworkGatewayModule` → **Cyclone Tests Pass** ✅
-3.  **Task 3 (Feature):** Implement DdsIdAllocator → Write Tests → **pass** ✅
+**CRITICAL: You MUST complete tasks in sequence with passing tests:**
+
+1.  **Transform Sync:** Implement `TransformSyncSystem` → Tests ✅
+2.  **Replay Bridge:** Implement `ReplayBridgeSystem` → Tests ✅
+3.  **Time Input:** Implement `TimeInputSystem` → Tests ✅
+4.  **Integration:** Wire up `Program.cs` (Live & Replay modes) → Manual Verification ✅
+
+**DO NOT** start wiring `Program.cs` until the systems are tested in isolation.
 
 ---
 
 ## ✅ Tasks
 
-### Task 1: Fix Core Network Tests (Priority 1)
-**Goal:** Resolve the 13 failing tests in verifying Network/ELM integration.
+### Task 1: Transform Sync System (FDP-DRP-011)
+**File:** `Fdp.Examples.NetworkDemo/Systems/TransformSyncSystem.cs`
 
-**Focus Areas (from Report):**
-- `NetworkELMIntegrationTests`
-- `NetworkELMIntegrationScenarios`
-- `ReliableInitializationTests`
-- Issues likely involve `NetworkGatewayModule` logic, ACK handling, or Ghost state transitions.
+**Description:**
+Bridge application state (`DemoPosition`) and network buffer (`NetworkPosition`).
+- **Owned:** Copy `DemoPosition` -> `NetworkPosition`.
+- **Remote:** Smooth `NetworkPosition` -> `DemoPosition` (using Lerp).
 
-**Specs:**
-- Run `dotnet test ModuleHost\ModuleHost.Core.Tests\ModuleHost.Core.Tests.csproj` to reproduce.
-- Fix the bugs in `ModuleHost.Core`.
-- **Constraint:** Do NOT disable tests. The functionality must work.
+**Requirements:**
+1.  Check `HasAuthority(entity, CHASSIS_KEY)` to determine direction.
+2.  Use `SMOOTHING_RATE` (e.g. 10.0f) for remote entities.
 
-**Verification:**
-- ✅ All `ModuleHost.Core.Tests` passed (0 failures).
+**Tests:**
+- ✅ `TransformSync_Owned_CopiesToBuffer`: Set DemoPos, run system, check NetPos.
+- ✅ `TransformSync_Remote_SmoothsPosition`: Set NetPos, run system, check DemoPos moved towards it.
 
----
+### Task 2: Replay Bridge System (FDP-DRP-012)
+**File:** `Fdp.Examples.NetworkDemo/Systems/ReplayBridgeSystem.cs`
 
-### Task 2: Propagate Fixes to Cyclone Module
-**Goal:** Ensure the new plugin doesn't inherit the old bugs.
+**Description:**
+The heart of the replay mechanism. Reads from `ShadowRepo` (Recording) and injects into `LiveRepo` (Simulation) based on **original ownership**.
 
-**Specs:**
-- Review the changes you made to `ModuleHost.Core.Network.NetworkGatewayModule`.
-- Apply equivalent fixes to `ModuleHost.Network.Cyclone.Modules.NetworkGatewayModule`.
-- Note: The Cyclone version uses `ModuleHost.Network.Cyclone.Abstractions` (or Core interface) for Topology, so adapt carefully.
+**Requirements:**
+1.  Load recording using `PlaybackController`.
+2.  Advance shadow world frame-by-frame.
+3.  **Selective Injection:**
+    - Iterate Shadow entities.
+    - If `ShadowRepo.HasAuthority(shadowEnt, KEY)`, copy component to Live entity.
+    - **CRITICAL:** Copy `NetworkIdentity` and `NetworkAuthority` on first encounter.
+4.  Handle Play/Pause/Speed input.
 
-**Verification:**
-- ✅ `ModuleHost.Network.Cyclone.Tests` still passing.
+**Tests:**
+- ✅ `ReplayBridge_InjectsOwnedComponents`: Mock recording with Owned Chassis & Unowned Turret. Verify ONLY Chassis injected.
+- ✅ `ReplayBridge_CopiesIdentity`: Verify `NetworkIdentity` is copied to live entity.
 
----
+### Task 3: Time Mode Input System (FDP-DRP-013)
+**File:** `Fdp.Examples.NetworkDemo/Systems/TimeInputSystem.cs`
 
-### Task 3: Implement DdsIdAllocator (EXT-2-3)
-**Goal:** Implement the distributed ID allocation protocol.
+**Description:**
+Handle `T` (Toggle Mode) and `Arrow Keys` (Time Scale) input.
 
-**Specs:**
-- Follow **EXT-2-3** in [EXTRACTION-TASK-DETAILS.md](../../docs/EXTRACTION-TASK-DETAILS.md).
-- Create `ModuleHost.Network.Cyclone/Topics/IdAllocTopics.cs` (Request, Response structs).
-- Implement `ModuleHost.Network.Cyclone/Services/DdsIdAllocator.cs` implementing `INetworkIdAllocator`.
-- **Constraint:** Must handle "Reset" signal as per [EXTRACTION-REFINEMENTS.md](../../docs/EXTRACTION-REFINEMENTS.md).
+**Requirements:**
+1.  Inject `DistributedTimeCoordinator`.
+2.  Call `SwitchToDeterministic()` / `SwitchToContinuous()`.
 
-**Tests Required:**
-- ✅ `AllocateId_WithMockServer_ReturnsSequentialIds`
-- ✅ `Reset_SendsGlobalRequest`
-- ✅ `ResponseReset_ClearsPool_RequestsNew`
+**Tests:**
+- ✅ `TimeInput_Toggle_CallsCoordinator`: Mock coordinator, verify method call.
+
+### Task 4: Integration (FDP-DRP-014 & FDP-DRP-015)
+**File:** `Fdp.Examples.NetworkDemo/Program.cs`
+
+**Description:**
+Wire everything together.
+- **Live Mode:** Register Physics, Input, Recorder (exclude system IDs), Sync. Save Metadata on exit.
+- **Replay Mode:** Load Metadata, Reserve IDs, Register ReplayBridge, Sync. **Disable Physics**.
+
+**Requirements:**
+1.  **ID Reservation:** Use `FdpConfig.SYSTEM_ID_RANGE` (Live) or `Meta.MaxEntityId` (Replay).
+2.  **Modules:** Register CycloneDDS, Geographic Module.
+3.  **Translators:** Register Geodetic & Auto-translators.
 
 ---
 
 ## 🧪 Testing Requirements
 
-**Total Expected Status:**
-- **Core:** 100% Passing (Recovery)
-- **Cyclone:** 100% Passing (Stability + New Feature)
+**Test Project:** `Fdp.Examples.NetworkDemo.Tests/`
 
-**Quality Gates:**
-1.  **Core Stability:** If Core tests fail, the batch is rejected.
-2.  **Code Consistency:** Logic between Core and Cyclone Gateway modules must be aligned (until we delete Core's version later).
+**Quality Standards:**
+- **Replay Bridge:** This is the most complex system. Ensure unit tests cover the "Partial Authority" case (owning one component but not another).
+- **Mocking:** You will need to mock `PlaybackController` or create a small real recording file for the Bridge tests.
 
-Good luck. Stabilize the patient.
+---
+
+## ⚠️ Common Pitfalls to Avoid
+- **Replay ID Collision:** If `ReserveIdRange` isn't called before `ReplayBridge` starts, the live world might allocate an ID that the recording needs.
+- **Physics in Replay:** Ensure Physics system is **NOT** registered in Replay mode, or time scale is 0. Otherwise, physics will fight the replay injection.
+- **Missing Metadata:** Replay will fail if `.fdp.meta` isn't saved/loaded correctly.
+
+---
+
+## 📚 Reference Materials
+- [TASK-DETAIL.md](../../docs/TASK-DETAIL.md) - Tasks 011-015
+- [DESIGN.md](../../docs/DESIGN.md) - Section 9 (Systems)

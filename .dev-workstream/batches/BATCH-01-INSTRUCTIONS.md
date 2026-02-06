@@ -1,164 +1,228 @@
-# BATCH-01: Foundation & Network Setup
+# BATCH-01: Kernel Foundation & Replication Toolkit
 
 **Batch Number:** BATCH-01  
-**Tasks:** EXT-1-1, EXT-1-2, EXT-1-3, EXT-1-4, EXT-2-2, EXT-2-1  
-**Phase:** Phase 1 (Foundation) + Phase 2 Start  
-**Estimated Effort:** 8-10 Hours  
-**Priority:** HIGH  
-**Dependencies:** None  
+**Tasks:** FDP-DRP-001 through FDP-DRP-007  
+**Phase:** Phase 1 (Kernel) & Phase 2 (Replication)  
+**Estimated Effort:** 12-16 hours  
+**Priority:** CRITICAL  
+**Dependencies:** None
 
 ---
 
 ## 📋 Onboarding & Workflow
 
 ### Developer Instructions
-Welcome to the first batch of the Extraction Refactor! This batch establishes the structural foundation for the entire project and starts the critical network layer extraction. 
-
-**This is a "Demanding" Batch.**
-We are combining Phase 1 (Setup) with the start of Phase 2 (Network Types & Mapping) to validate the architecture immediately. Precision is key.
+This batch combines the **Kernel Foundation** (Phase 1) and **Replication Toolkit** (Phase 2). This provides a complete infrastructure layer: enabling safe replay ID management AND zero-boilerplate networking.
 
 ### Required Reading (IN ORDER)
-1. **[ONBOARDING.md](../ONBOARDING.md)** - **READ THIS FIRST**.
-2. **[EXTRACTION-TASK-TRACKER.md](../../docs/EXTRACTION-TASK-TRACKER.md)** - Review Phase 1 & 2 status.
-3. **[EXTRACTION-TASK-DETAILS.md](../../docs/EXTRACTION-TASK-DETAILS.md)** - The detailed specs for tasks below.
-4. **[EXTRACTION-REFINEMENTS.md](../../docs/EXTRACTION-REFINEMENTS.md)** - Read section on "Zero Knowledge of Wire Format".
+1. **Project Onboarding:** [`ONBOARDING.md`](../../ONBOARDING.md) - **READ THIS FIRST** to understand the Shadow World concept and ID partitioning strategy.
+2. **Workflow Guide:** `.dev-workstream/README.md` - How to work with batches.
+3. **Task Definitions:** [`docs/TASK-DETAIL.md`](../../docs/TASK-DETAIL.md) - Detailed specs for tasks 001-007.
+4. **Design Document:** [`docs/DESIGN.md`](../../docs/DESIGN.md) - Section 3.1 (ID Management), 4.2 (Shadow World), and 7 (Zero Boilerplate).
 
 ### Source Code Location
-- **ModuleHost Solution:** `ModuleHost/ModuleHost.sln` (Main work area)
-- **Samples Solution:** `Samples.sln` (Secondary check)
+- **Kernel Core:** `ModuleHost/FDP/Fdp.Kernel/`
+- **Replication Toolkit:** `ModuleHost/FDP.Toolkit.Replication/`
+- **Interfaces:** `ModuleHost/FDP.Interfaces/`
+- **Tests:** `ModuleHost/FDP/Fdp.Tests/` and `ModuleHost/FDP.Toolkit.Replication.Tests/`
 
 ### Report Submission
-When done, submit your report to: `.dev-workstream/reports/BATCH-01-REPORT.md`
+**When done, submit your report to:**  
+`.dev-workstream/reports/BATCH-01-REPORT.md`
+
+**If you have questions, create:**  
+`.dev-workstream/questions/BATCH-01-QUESTIONS.md`
 
 ---
-
-## 🚦 Current Progress Snapshot (2026-01-30)
-
-- Task 1 (Foundation) ✅ Complete - solutions build successfully
-- Task 2 (Core Abstractions) ✅ Complete - All interface tests passing (NetworkInterfacesTests + MigrationSmokeTests)
-- Last test run: All 4 tests passing - INetworkIdAllocator_CanBeMocked, INetworkTopology_CanBeMocked, KernelCreation_BeforeMigration_Succeeds, ComponentRegistration_BeforeMigration_Succeeds
-- **Next:** Task 3 - Define DDS Topics (NetworkAppId, EntityMasterTopic, etc.)
-  
-## 🎯 Immediate Next Actions
-
-- Create test project: `ModuleHost.Network.Cyclone.Tests` with xUnit and reference to ModuleHost.Network.Cyclone
-- Implement CommonTypes.cs with NetworkAppId struct and enums
-- Implement EntityMasterTopic.cs with DDS attributes
-- Create TopicSchemaTests.cs with validation tests
-- Run tests to verify schema validation before proceeding to Task 4
 
 ## 🔄 MANDATORY WORKFLOW: Test-Driven Task Progression
 
 **CRITICAL: You MUST complete tasks in sequence with passing tests:**
 
-1. **Task 1 (Setup):** Create Projects → successful build ✅
-2. **Task 2 (Interfaces):** Define Interfaces → Write Compilation Tests → **pass** ✅
-3. **Task 3 (Topics):** Define Structs → Write Schema Tests → **pass** ✅
-4. **Task 4 (Logic):** Implement Mapper → Write Logic Tests → **pass** ✅
+1. **Kernel Tasks (001-003):** Implement → Write tests → **ALL tests pass** ✅
+2. **Toolkit Foundation (004-005):** Implement → Write tests → **ALL tests pass** ✅
+3. **Generic Translator (006):** Implement → Write tests → **ALL tests pass** ✅
+4. **Auto-Registration (007):** Implement → Write tests → **ALL tests pass** ✅
 
-**DO NOT** move to the next task until the current one is solid.
-
----
-
-## ✅ Tasks
-
-### Task 1: Foundation Setup (Rules of Engagement)
-**Tasks covered:** EXT-1-1, EXT-1-2
-
-**Goal:** Create the two main extraction targets: `ModuleHost.Network.Cyclone` and `Fdp.Modules.Geographic`.
-
-**Specs:**
-- Follow **EXT-1-1** and **EXT-1-2** in [EXTRACTION-TASK-DETAILS.md](../../docs/EXTRACTION-TASK-DETAILS.md) exactly.
-- **Correction:** Add `ModuleHost.Network.Cyclone` to `ModuleHost.sln`.
-- **Correction:** Add `Fdp.Modules.Geographic` to **BOTH** `ModuleHost.sln` (as it's a core module) and `Samples.sln` (for visibility).
-
-**Verify:**
-- `dotnet build ModuleHost/ModuleHost.sln` succeeds.
+**DO NOT** move to the next task until:
+- ✅ Current task implementation complete
+- ✅ Current task tests written
+- ✅ **ALL tests passing** (including previous tasks)
 
 ---
 
-### Task 2: Core Abstractions & Smoke Test
-**Tasks covered:** EXT-1-3, EXT-1-4
-
-**Goal:** Establish the interfaces that allow decupling.
-
-**Specs:**
-- Follow **EXT-1-3** to define `INetworkIdAllocator` and `INetworkTopology`.
-    - **Note:** Ensure `INetworkTopology` is in `ModuleHost.Core.Network.Interfaces` for now. Later steps might move it, but follow the task detail.
-- Follow **EXT-1-4** to create the Migration Smoke Test.
-
-**Tests Required:**
-- ✅ `INetworkIdAllocator_CanBeMocked`
-- ✅ `INetworkTopology_CanBeMocked`
-- ✅ `MigrationSmokeTests` (Verify baseline passes)
+## 🎯 Batch Objectives
+1. **ID Partitioning:** Prevents collisions between "System" entities and "Recorded" entities.
+2. **Deterministic Hydration:** Allows the replay system to force-create entities with specific IDs.
+3. **Selective Recording:** Prevents local system entities and transient network buffers from polluting the recording.
+4. **Zero-Boilerplate Networking:** Enables networking for components just by adding attributes, using a generic translator.
 
 ---
 
-### Task 3: Define DDS Topics (Data Types)
-**Tasks covered:** EXT-2-2
+## ✅ Part 1: Kernel Foundation
 
-**Goal:** Define the wire-format structs. This is the "Contract" between peers.
+### Task 1: Entity Index ID Reservation (FDP-DRP-001)
 
-**Specs:**
-- Follow **EXT-2-2** in [EXTRACTION-TASK-DETAILS.md](../../docs/EXTRACTION-TASK-DETAILS.md).
-- Implement `NetworkAppId`, `EntityMasterTopic`, etc. in `ModuleHost.Network.Cyclone/Topics/`.
-- Ensure `CycloneDDS.Schema` attributes are applied correctly.
+**Files:**
+- `ModuleHost/FDP/Fdp.Kernel/FdpConfig.cs` (UPDATE)
+- `ModuleHost/FDP/Fdp.Kernel/EntityIndex.cs` (UPDATE)
+- `ModuleHost/FDP/Fdp.Kernel/EntityRepository.cs` (UPDATE)
 
-**Tests Required:**
-- ✅ `CommonTypes_ValidateEnums`
-- ✅ `EntityMasterTopic_HasCorrectKeys`
-- ✅ `NetworkAppId_Equality_Works`
+**Description:**
+Implement the ability to reserve a range of IDs at the start of the entity index.
+
+**Requirements:**
+1. Define `public const int SYSTEM_ID_RANGE = 65536;` in `FdpConfig.cs`.
+2. Implement `ReserveIdRange(int maxId)` in `EntityIndex.cs` (thread-safe).
+3. Expose via `EntityRepository.ReserveIdRange`.
+
+**Tests:**
+- ✅ `ReserveIdRange_PreventsCollision`
+- ✅ `ReserveIdRange_MultipleCalls`
 
 ---
 
-### Task 4: NodeIdMapper Service (Logic)
-**Tasks covered:** EXT-2-1
+### Task 2: Entity Hydration for Replay (FDP-DRP-002)
 
-**Goal:** Implement the translation implementation between DDS IDs ("Alpha:100") and Core IDs (int).
+**Files:**
+- `ModuleHost/FDP/Fdp.Kernel/EntityRepository.cs` (UPDATE)
 
-**Specs:**
-- Follow **EXT-2-1**.
-- Implement `NodeIdMapper.cs` in `ModuleHost.Network.Cyclone/Services/`.
-- This service depends on `NetworkAppId` defined in Task 3.
+**Description:**
+Implement `HydrateEntity(int id, int generation)` to force-create entities at specific slots during replay.
 
-**Tests Required:**
-- ✅ `LocalNode_AlwaysHasId1`
-- ✅ `NewExternalId_GetsUniqueInternalId`
-- ✅ `Bidirectional_Mapping_Consistent`
-- ✅ `ConcurrentAccess_ThreadSafe`
+**Requirements:**
+1. Verify ID is within reserved range OR extend reservation.
+2. Set entity generation to exactly match request.
+3. Mark entity as active and emit lifecycle event.
+
+**Tests:**
+- ✅ `HydrateEntity_CreatesAtSpecificId`
+- ✅ `HydrateEntity_EmitsLifecycleEvent`
+
+---
+
+### Task 3: Recorder Minimum ID Filter (FDP-DRP-003)
+
+**Files:**
+- `ModuleHost/FDP/Fdp.Kernel/FlightRecorder/RecorderSystem.cs` (UPDATE)
+
+**Description:**
+Update `RecorderSystem` to ignore entities below `MinRecordableId` (default 65536).
+
+**Requirements:**
+1. Add `MinRecordableId` property.
+2. Modify `RecordDeltaFrame` to skip chunks/entities below this ID.
+
+**Tests:**
+- ✅ `RecorderSystem_SkipsSystemRange`
+
+---
+
+## ✅ Part 2: Replication Toolkit
+
+### Task 4: Data Policy Enforcement (FDP-DRP-004)
+
+**Files:**
+- `ModuleHost/FDP.Toolkit.Replication/Components/NetworkPosition.cs` (UPDATE)
+- `ModuleHost/FDP.Toolkit.Replication/Components/NetworkVelocity.cs` (UPDATE)
+- `ModuleHost/FDP.Toolkit.Replication/Components/NetworkAuthority.cs` (VERIFY)
+- `ModuleHost/FDP.Toolkit.Replication/Components/NetworkIdentity.cs` (VERIFY)
+
+**Description:**
+Mark buffer components with `[DataPolicy(DataPolicy.NoRecord)]` to prevent them from being recorded. Authority components MUST remain recordable.
+
+**Requirements:**
+1. Add attribute to `NetworkPosition`, `NetworkVelocity`.
+2. Ensure `NetworkIdentity`, `NetworkAuthority`, `DescriptorOwnership` do NOT have this attribute.
+
+**Tests:**
+- ✅ `NetworkComponents_NotRecordable`: Verify `IsRecordable` returns false for buffers.
+
+---
+
+### Task 5: FdpDescriptor Attribute (FDP-DRP-005)
+
+**Files:**
+- `ModuleHost/FDP.Interfaces/Attributes/FdpDescriptorAttribute.cs` (CREATE)
+
+**Description:**
+Create the attribute used to mark structs for automatic translator generation.
+
+**Requirements:**
+1. Properties: `Ordinal` (int), `TopicName` (string), `IsMandatory` (bool).
+2. AttributeUsage: Structs only.
+
+**Tests:**
+- ✅ `FdpDescriptorAttribute_ReflectionAccessible`
+
+---
+
+### Task 6: Generic Descriptor Translator (FDP-DRP-006)
+
+**Files:**
+- `ModuleHost/FDP.Toolkit.Replication/Translators/GenericDescriptorTranslator.cs` (CREATE)
+
+**Description:**
+Implement the generic translator that maps ECS components to descriptors 1:1. Includes **Ghost Stash** logic.
+
+**Requirements:**
+1. Generic class `GenericDescriptorTranslator<T>`.
+2. `PollIngress`:
+   - If entity has `BinaryGhostStore` (is a ghost) -> Serialize & Stash data (DO NOT apply).
+   - If active entity -> Apply component directly.
+3. `ScanAndPublish`:
+   - Query entities with `T`, `NetworkIdentity`, `NetworkAuthority`.
+   - Check `HasAuthority(descriptorOrdinal)`.
+   - Publish if owned.
+
+**Design Reference:** [DESIGN.md](../../docs/DESIGN.md) § 7.2
+
+**Tests:**
+- ✅ `GenericTranslator_Ingress_StashesForGhost`
+- ✅ `GenericTranslator_Ingress_AppliesForActive`
+- ✅ `GenericTranslator_Egress_RespectsAuthority`
+
+---
+
+### Task 7: Assembly Scanning (FDP-DRP-007)
+
+**Files:**
+- `ModuleHost/FDP.Toolkit.Replication/ReplicationBootstrap.cs` (CREATE/UPDATE)
+
+**Description:**
+Implement reflection scanner to find `[FdpDescriptor]` types and create translators.
+
+**Requirements:**
+1. `CreateAutoTranslators(Assembly assembly, ...)`
+2. Scan for value types with attribute.
+3. Instantiate `GenericDescriptorTranslator<T>` for each.
+4. Create appropriate serializer for each.
+
+**Tests:**
+- ✅ `Bootstrap_CreatesTranslatorsForAttributedTypes`
 
 ---
 
 ## 🧪 Testing Requirements
 
-**Total Expected New/Updated Tests:** >15
+**Test Projects:**
+- `ModuleHost/FDP/Fdp.Tests/` (Kernel tasks)
+- `ModuleHost/FDP.Toolkit.Replication.Tests/` (Toolkit tasks)
 
-**Quality Gates:**
-1. **Compilation:** Both Solutions must build cleanly.
-2. **Tests:** All new tests in `ModuleHost.Network.Cyclone.Tests` must pass.
-3. **Smoke:** `MigrationSmokeTests` in Core must pass.
+**Quality Standards:**
+- **Zero Allocations:** `ReserveIdRange` and `HydrateEntity` must be allocation-free.
+- **Test Quality:** Do not use `Assert.Contains` for generated code checks. Compile or use reflection to verify behavior.
+- **Ghost Protocol:** Task 6 tests must explicitly verify the Ghost Stash behavior (data buffering) vs immediate application.
 
 ---
 
-## ⚠️ Common Pitfalls
-
-1. **Namespace Confusion:**
-   - Core Interfaces: `ModuleHost.Core.Network.Interfaces`
-   - Cyclone Implementation: `ModuleHost.Network.Cyclone.*`
-   - **Do not mix them up.**
-
-2. **Project References:**
-   - Ensure `ModuleHost.Network.Cyclone` references `ModuleHost.Core`.
-   - Ensure `ModuleHost.Network.Cyclone` references `CycloneDDS.Runtime` (fast bindings).
-
-3. **Test Project:**
-   - You will need to create `ModuleHost.Network.Cyclone.Tests` project if it's not explicitly mentioned in EXT-1-1. **CREATE IT**.
-   - Reference `ModuleHost.Network.Cyclone` and `xunit`.
+## ⚠️ Common Pitfalls to Avoid
+- **Partial Ownership:** In Task 6, ensure `ScanAndPublish` checks `HasAuthority` for the *specific descriptor ordinal*, not just general authority.
+- **Ghost Stashing:** Failing to stash data for ghosts will cause them to spawn with incomplete state or trigger premature activation.
+- **Attribute Targets:** Ensure `FdpDescriptor` is only valid on structs (value types), as FDP components must be unmanaged/blittable.
 
 ---
 
 ## 📚 Reference Materials
-- [EXTRACTION-TASK-DETAILS.md](../../docs/EXTRACTION-TASK-DETAILS.md) - **The Source of Truth**
-- [EXTRACTION-DESIGN.md](../../docs/EXTRACTION-DESIGN.md) - The Vision
-
-Good luck. Speed is good, accuracy is better.
+- [TASK-DETAIL.md](../../docs/TASK-DETAIL.md) - Tasks 001-007
+- [DESIGN.md](../../docs/DESIGN.md) - Section 7 (Zero Boilerplate Networking)

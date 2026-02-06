@@ -1,26 +1,32 @@
-# BATCH-02: Type Mapping, Translators, and Gateway
+# BATCH-02: Fixes & Demo Infrastructure
 
 **Batch Number:** BATCH-02  
-**Tasks:** EXT-2-6, EXT-2-5, EXT-2-4  
-**Phase:** Phase 2 (Network Layer Extraction)  
-**Estimated Effort:** 6-8 Hours  
+**Tasks:** Fixes (Batch 01), FDP-DRP-008, FDP-DRP-009, FDP-DRP-010  
+**Phase:** Phase 3 (Demo Infrastructure)  
+**Estimated Effort:** 8-12 hours  
 **Priority:** HIGH  
-**Dependencies:** BATCH-01 (Complete)  
+**Dependencies:** BATCH-01 (Partially completed)
 
 ---
 
 ## 📋 Onboarding & Workflow
 
 ### Developer Instructions
-With the foundation and topics in place, we now implement the "Brain" of the network layer. This batch focuses on **Data Translation**: converting between Core's generic components and the DDS topics you just created.
+This batch consolidates the **corrective fixes** from Batch 01 and the **infrastructure setup** for the Tank Demo (Phase 3). You must fix the foundational issues before building the demo components on top of them.
 
 ### Required Reading (IN ORDER)
-1. **[EXTRACTION-TASK-DETAILS.md](../../docs/EXTRACTION-TASK-DETAILS.md)** - Review EXT-2-6, EXT-2-5, EXT-2-4.
-2. **[EXTRACTION-REFINEMENTS.md](../../docs/EXTRACTION-REFINEMENTS.md)** - **CRITICAL:** Read "Warning 1: INetworkTopology namespace shift" and "Warning 2: TypeId Determinism".
+1.  **Review Findings:** `.dev-workstream/reviews/BATCH-01-REVIEW.md` - Understand why the fixes are needed.
+2.  **Task Definitions:** [`docs/TASK-DETAIL.md`](../../docs/TASK-DETAIL.md) - Specs for tasks 008, 009, 010.
+3.  **Design Document:** [`docs/DESIGN.md`](../../docs/DESIGN.md) - Section 5.2 (Demo Components) and 8 (Metadata).
 
 ### Source Code Location
-- **Work Area:** `ModuleHost.Network.Cyclone/`
-- **Tests:** `ModuleHost.Network.Cyclone.Tests/`
+- **Toolkit Fixes:** `ModuleHost/FDP.Toolkit.Replication/`
+- **Demo Project:** `Fdp.Examples.NetworkDemo/`
+- **Tests:** `ModuleHost/FDP.Toolkit.Replication.Tests/` and `Fdp.Examples.NetworkDemo.Tests/` (You may need to create the demo test project).
+
+### Report Submission
+**When done, submit your report to:**  
+`.dev-workstream/reports/BATCH-02-REPORT.md`
 
 ---
 
@@ -28,80 +34,101 @@ With the foundation and topics in place, we now implement the "Brain" of the net
 
 **CRITICAL: You MUST complete tasks in sequence with passing tests:**
 
-1. **Task 1 (Types):** Implement TypeIdMapper → Write Tests → **pass** ✅
-2. **Task 2 (Translators):** Implement Translators → Write Tests → **pass** ✅
-3. **Task 3 (Gateway):** Move NetworkGatewayModule → Write Tests → **pass** ✅
+1.  **Fixes:** Implement fixes → Write missing tests → **ALL tests pass** ✅
+2.  **Metadata:** Implement → Write tests → **ALL tests pass** ✅
+3.  **Components:** Implement → Write tests → **ALL tests pass** ✅
+4.  **Translator:** Implement → Write tests → **ALL tests pass** ✅
+
+**DO NOT** move to the Demo Infrastructure until the Toolkit Fixes are verified.
 
 ---
 
-## ✅ Tasks
+## 🔧 Part 1: BATCH-01 Corrective Fixes
 
-### Task 1: TypeIdMapper Service (EXT-2-6)
-**Goal:** Map between Core's `int TypeId` and DDS's `ulong DisTypeValue`.
+### Fix 1: GenericDescriptorTranslator API & Tests
+**File:** `ModuleHost/FDP.Toolkit.Replication/Translators/GenericDescriptorTranslator.cs`
 
-**Specs:**
-- Create `ModuleHost.Network.Cyclone/Services/TypeIdMapper.cs`.
-- Implement `GetCoreTypeId(ulong)` and `GetDISType(int)`.
-- **CRITICAL:** You MUST add a `TODO` comment about determinism as per **EXTRACTION-REFINEMENTS.md**.
+**Issue:** Code uses `GetManagedComponentRO` but modifies the returned object. This violates the read-only contract.
+**Requirement:** Change to `GetManagedComponent` (or RW variant) when accessing `BinaryGhostStore` for modification.
 
-**Tests Required:**
-- ✅ `GetCoreTypeId_NewDISType_ReturnsUniqueId`
-- ✅ `GetCoreTypeId_SameDISType_ReturnsSameId`
-- ✅ `BidirectionalMapping_Consistent`
+**Missing Tests:**
+**File:** `ModuleHost/FDP.Toolkit.Replication.Tests/Translators/GenericDescriptorTranslatorTests.cs` (CREATE)
+**Requirements:**
+- ✅ `PollIngress_GhostEntity_StashesData`: Verify data goes to `StashedData` and **NOT** to the component.
+- ✅ `PollIngress_ActiveEntity_AppliesData`: Verify data goes directly to the component.
 
----
+### Fix 2: Recorder Default Value
+**File:** `ModuleHost/FDP/Fdp.Kernel/FlightRecorder/RecorderSystem.cs`
 
-### Task 2: Descriptor Translators (EXT-2-5)
-**Goal:** Implement the `IDescriptorTranslator` classes that move data between DDS Topics (DataReader/Writer) and Core Entities (EntityRepository).
-
-**Specs:**
-- Create `ModuleHost.Network.Cyclone/Translators/`.
-- Implement `EntityMasterTranslator.cs` (Handles `EntityMasterTopic`).
-- Implement `EntityStateTranslator.cs` (Handles `EntityStateTopic`).
-- **Logic:**
-    - `PollIngress`: Read from DDS, use `NodeIdMapper` to resolve Owner, use `TypeIdMapper` to resolve Type, write to Core.
-    - `ScanAndPublish`: Read from Core, use Mappers, write to DDS.
-
-**Tests Required:**
-- ✅ `EntityMasterTranslator_PollIngress_MapsOwnerAndTypeCorrectly`
-- ✅ `EntityMasterTranslator_ScanAndPublish_WritesCorrectTopic`
-- ✅ `EntityStateTranslator_PollIngress_UpdatesPosition`
+**Issue:** Default `MinRecordableId` is 0.
+**Requirement:** Change default to `FdpConfig.SYSTEM_ID_RANGE` (65536) to safely exclude system entities by default.
 
 ---
 
-### Task 3: Move NetworkGatewayModule (EXT-2-4)
-**Goal:** Extract the main coordination module.
+## 🏗️ Part 2: Phase 3 Infrastructure (Demo Setup)
 
-**Specs:**
-- **Copy** `NetworkGatewayModule.cs` from Core to `ModuleHost.Network.Cyclone/Modules/`.
-- **Refactor:**
-    - Update Namespace to `ModuleHost.Network.Cyclone.Modules`.
-    - Change dependencies to use `INetworkTopology` (from `Abstractions` if moved, or `Core.Network.Interfaces` if not yet moved). 
-    - **Note:** Check where `INetworkTopology` currently lives. If it's in Core, use it from Core. Task details mention a namespace shift potential—be careful.
-- **Do NOT delete** it from Core yet (that is Phase 5).
+### Task 3: Recording Metadata Structure (FDP-DRP-008)
+**Files:**
+- `Fdp.Examples.NetworkDemo/Configuration/RecordingMetadata.cs`
+- `Fdp.Examples.NetworkDemo/Configuration/MetadataManager.cs`
 
-**Tests Required:**
-- ✅ `Constructor_WithValidDependencies_Succeeds`
-- ✅ `ProcessConstructionOrders_WithNoPeers_AcksImmediately`
+**Description:**
+Define the sidecar file structure for recording metadata (`.fdp.meta`).
+
+**Requirements:**
+1.  `RecordingMetadata` class (Serializable): `MaxEntityId`, `Timestamp`, `NodeId`.
+2.  `MetadataManager`: Static helper for JSON Save/Load.
+
+**Tests:**
+- ✅ `Metadata_SaveLoad_PreservesData`: Round-trip serialization test.
+
+### Task 4: Demo Component Definitions (FDP-DRP-009)
+**Files:**
+- `Fdp.Examples.NetworkDemo/Components/DemoPosition.cs` (Internal logic position - RECORDED)
+- `Fdp.Examples.NetworkDemo/Descriptors/GeoStateDescriptor.cs` (Network w/ DDS attributes)
+- `Fdp.Examples.NetworkDemo/Components/TurretState.cs` (Auto-translated w/ FdpDescriptor)
+
+**Description:**
+Define the structs for the tank demo. `DemoPosition` drives `GeoStateDescriptor`. `TurretState` is auto-translated.
+
+**Requirements:**
+1.  `DemoPosition`: `Vector3 Value`.
+2.  `GeoStateDescriptor`: `Lat`, `Lon`, `Alt`, `Heading`, `EntityId` (DdsKey).
+3.  `TurretState`: `Yaw`, `Pitch`, `EntityId` (DdsKey). Add `[FdpDescriptor]`.
+
+**Tests:**
+- ✅ Verify attributes via reflection (ensure `FdpDescriptor` is present on `TurretState`).
+
+### Task 5: Geographic Translator (FDP-DRP-010)
+**Files:**
+- `Fdp.Examples.NetworkDemo/Translators/GeodeticTranslator.cs`
+
+**Description:**
+Implement the manual translator that converts between `DemoPosition`/`NetworkPosition` (Cartesian) and `GeoStateDescriptor` (WGS84).
+
+**Requirements:**
+1.  Inject `IGeographicTransform` and `NetworkEntityMap`.
+2.  `PollIngress`: `GeoStateDescriptor` -> `NetworkPosition` (Cartesian).
+3.  `ScanAndPublish`: `NetworkPosition` -> `GeoStateDescriptor` (Geodetic).
+4.  **Ownership Check:** `view.HasAuthority(entity, DescriptorOrdinal)` before publishing.
+
+**Tests:**
+- ✅ `GeodeticTranslator_RoundTrip`: Verify `Vector3` -> `Geo` -> `Vector3` preserves values (using `WGS84Transform`).
 
 ---
 
 ## 🧪 Testing Requirements
 
-**Total Expected New Tests:** >10
+**Test Projects:**
+- `ModuleHost/FDP.Toolkit.Replication.Tests/` (Fixes)
+- `Fdp.Examples.NetworkDemo.Tests/` (Create if missing)
 
-**Quality Gates:**
-1.  **Strict Isolation:** Translators should NOT leak DDS types (`NetworkAppId`, `DISEntityType`) into Core components. They must convert to `int` immediately.
-2.  **Thread Safety:** Mappers must stay thread-safe (check `NodeIdMapper` pattern).
+**Quality Standards:**
+- **Zero Allocations:** Translator hot paths (`PollIngress`) should minimize allocations (reuse buffers where possible, though deserialization often allocates).
+- **Correctness:** Verify the math in `GeodeticTranslator` using a known coordinate (e.g., Berlin origin).
 
 ---
 
-## ⚠️ Common Pitfalls
-
-1.  **Circular Dependencies:**
-    - Ensure Translators depend on Mappers, not the other way around.
-    - Mappers are Services.
-2.  **Schema Attributes:**
-    - When testing Translators, you are mocking the DataReader/DataWriter. Ensure you test the *logic* of translation, not the DDS middleware itself.
-
-Good luck.
+## 📚 Reference Materials
+- [TASK-DETAIL.md](../../docs/TASK-DETAIL.md)
+- `Fdp.Modules.Geographic` - See `WGS84Transform` usage.

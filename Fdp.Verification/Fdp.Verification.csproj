@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" />
+    <PackageReference Include="Moq" Version="4.20.70" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Fdp.Examples.NetworkDemo\Configuration\RecordingMetadata.cs" Link="RecordingMetadata.cs" />
+    <Compile Include="..\Fdp.Examples.NetworkDemo\Configuration\MetadataManager.cs" Link="MetadataManager.cs" />
+    <Compile Include="..\Fdp.Examples.NetworkDemo\Components\DemoPosition.cs" Link="DemoPosition.cs" />
+    <Compile Include="..\Fdp.Examples.NetworkDemo\Descriptors\GeoStateDescriptor.cs" Link="GeoStateDescriptor.cs" />
+    <Compile Include="..\Fdp.Examples.NetworkDemo\Components\TurretState.cs" Link="TurretState.cs" />
+    <Compile Include="..\Fdp.Examples.NetworkDemo\Translators\GeodeticTranslator.cs" Link="GeodeticTranslator.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModuleHost\FDP.Interfaces\FDP.Interfaces.csproj" />
+    <ProjectReference Include="..\FastCycloneDdsCsharpBindings\src\CycloneDDS.Core\CycloneDDS.Core.csproj" />
+    <ProjectReference Include="..\Fdp.Modules.Geographic\Fdp.Modules.Geographic.csproj" />
+    <ProjectReference Include="..\ModuleHost\FDP.Toolkit.Replication\FDP.Toolkit.Replication.csproj" />
+  </ItemGroup>
+
+
+</Project>
