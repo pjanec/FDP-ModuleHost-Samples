@@ -34,6 +34,9 @@ namespace ModuleHost.Network.Cyclone.Translators
 
                 // Map Owner
                 int ownerNodeId = _nodeMapper.GetOrRegisterInternalId(topic.OwnerId);
+
+                // Ignore loopback
+                if (ownerNodeId == _nodeMapper.LocalNodeId) continue;
                 
                 // Map Type (Reuse TypeIdMapper just to cache the mapping, though we use ulong component)
                 // This ensures the generic TypeIdMapper is aware of this type if other systems need it.

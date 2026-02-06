@@ -136,12 +136,11 @@ namespace ModuleHost.Network.Cyclone.Modules
         public void Execute(ISimulationView view, float deltaTime)
         {
             // Migrated to Toolkit Replication. Legacy loop disabled.
-            /*
+            // Enabling for Demo since Toolkit Replication Ingress is not yet fully wired in this sample.
             for(int i=0; i<_translators.Length; i++)
             {
                  _translators[i].PollIngress(_readers[i], view.GetCommandBuffer(), view);
             }
-            */
         }
     }
 }

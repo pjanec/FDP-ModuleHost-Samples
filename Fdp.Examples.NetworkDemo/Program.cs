@@ -240,6 +240,13 @@ class Program
                     PrimaryOwnerId = localInternalId, 
                     LocalNodeId = localInternalId 
                 });
+
+                // 2b. Spawn Request (Required for Egress)
+                world.AddComponent(entity, new NetworkSpawnRequest 
+                { 
+                    DisType = 100, // Tank Type
+                    OwnerId = (ulong)localInternalId 
+                });
                 
                 // 3. Initial Position/Vel
                 world.SetComponent(entity, new NetworkPosition 
