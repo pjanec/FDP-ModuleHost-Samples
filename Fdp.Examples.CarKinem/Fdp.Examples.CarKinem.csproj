@@ -25,6 +25,7 @@
     <ProjectReference Include="..\CarKinem\CarKinem.csproj" />
     <ProjectReference Include="..\ModuleHost\FDP\Fdp.Kernel\Fdp.Kernel.csproj" />
     <ProjectReference Include="..\ModuleHost\ModuleHost.Core\ModuleHost.Core.csproj" />
+    <ProjectReference Include="..\ModuleHost\FDP.Toolkit.Time\FDP.Toolkit.Time.csproj" />
   </ItemGroup>
 
 </Project>

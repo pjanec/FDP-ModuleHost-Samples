@@ -6,6 +6,8 @@ using FDP.Toolkit.Lifecycle;
 using FDP.Toolkit.Lifecycle.Events;
 using ModuleHost.Core.Network.Interfaces;
 using ModuleHost.Core.Network;
+using Fdp.Interfaces;
+using INetworkTopology = Fdp.Interfaces.INetworkTopology;
 
 namespace ModuleHost.Network.Cyclone.Modules
 {
@@ -101,7 +103,7 @@ namespace ModuleHost.Network.Cyclone.Modules
                 // NetworkSpawnerSystem populates PendingNetworkAck with ExpectedType
                 var pendingInfo = view.GetComponentRO<PendingNetworkAck>(evt.Entity);
                 
-                var expectedPeers = _topology.GetExpectedPeers(pendingInfo.ExpectedType);
+                var expectedPeers = _topology.GetExpectedPeers((long)pendingInfo.ExpectedType);
                 var peerSet = new HashSet<int>(expectedPeers);
                 
                 Console.WriteLine($"[Gateway] Entity {evt.Entity.Index}: Reliable mode. Peers: {string.Join(",", peerSet)}");

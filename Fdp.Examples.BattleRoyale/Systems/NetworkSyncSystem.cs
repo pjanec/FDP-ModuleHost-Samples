@@ -4,7 +4,7 @@ using System.Numerics;
 using ModuleHost.Core.Abstractions;
 using Fdp.Kernel;
 using Fdp.Examples.BattleRoyale.Components;
-using ModuleHost.Network.Cyclone.Components;
+using FDP.Toolkit.Replication.Components;
 using ModuleHost.Core.Network;
 
 namespace Fdp.Examples.BattleRoyale.Systems

@@ -13,6 +13,7 @@ using Fdp.Kernel.FlightRecorder;
 using ModuleHost.Core;
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Time;
+using FDP.Toolkit.Time.Controllers;
 
 namespace Fdp.Examples.CarKinem.Simulation
 {
@@ -108,7 +109,9 @@ namespace Fdp.Examples.CarKinem.Simulation
             _kernel = new ModuleHostKernel(_repository, _eventAccumulator);
             
             // Configure Time
-            _kernel.ConfigureTime(_timeConfig);
+            // _kernel.ConfigureTime(_timeConfig);
+            var controller = TimeControllerFactory.Create(_repository.Bus, _timeConfig);
+            _kernel.SetTimeController(controller);
             
             _kernel.Initialize(); 
             

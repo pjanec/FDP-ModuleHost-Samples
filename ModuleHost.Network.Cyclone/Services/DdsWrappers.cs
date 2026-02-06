@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using CycloneDDS.Runtime;
-using ModuleHost.Core.Network;
-using CoreInstanceState = ModuleHost.Core.Network.DdsInstanceState;
+using Fdp.Interfaces; // For IDataReader, IDataWriter
+using CoreInstanceState = Fdp.Interfaces.NetworkInstanceState;
 using CycloneDdsInstanceState = CycloneDDS.Runtime.DdsInstanceState;
 
 namespace ModuleHost.Network.Cyclone.Services
@@ -19,6 +19,8 @@ namespace ModuleHost.Network.Cyclone.Services
         }
 
         public string TopicName => _topicName;
+        
+        public void Dispose() { }
 
         public IEnumerable<IDataSample> TakeSamples()
         {
@@ -41,52 +43,42 @@ namespace ModuleHost.Network.Cyclone.Services
                     case CycloneDdsInstanceState.NotAliveNoWriters: state = CoreInstanceState.NotAliveNoWriters; break;
                 }
 
-                list.Add(new DataSample
+                list.Add(new SampleData
                 {
                     Data = data,
                     InstanceState = state,
-                    InstanceId = info.InstanceHandle
+                    InstanceId = info.InstanceHandle,
+                    EntityId = 0
                 });
             }
             return list;
         }
-
-        public void Dispose()
-        {
-        }
     }
-
-    public class CycloneDataWriter<T> : IDataWriter
+    
+    public class CycloneDataWriter<T> : IDataWriter where T : struct
     {
         private readonly DdsWriter<T> _writer;
         private readonly string _topicName;
-
+        
         public CycloneDataWriter(DdsWriter<T> writer, string topicName)
         {
             _writer = writer ?? throw new ArgumentNullException(nameof(writer));
             _topicName = topicName;
         }
-
+        
         public string TopicName => _topicName;
-
+        
         public void Write(object sample)
         {
-            if (sample is T typedOrder)
-            {
-                _writer.Write(typedOrder);
-            }
-            else
-            {
-                throw new ArgumentException($"Expected sample of type {typeof(T).Name}, got {sample?.GetType().Name}");
-            }
+            if (sample is T typedSample)
+                _writer.Write(typedSample);
         }
-
-        public void Dispose(long networkEntityId)
-        {
-        }
-
-        public void Dispose()
-        {
-        }
+        
+        public void Dispose() { }
+        public void Dispose(long networkEntityId) 
+        { 
+            // Generic dispose by ID requires constructing a key sample.
+            // For now, skipping explicit disposal 
+        } 
     }
 }

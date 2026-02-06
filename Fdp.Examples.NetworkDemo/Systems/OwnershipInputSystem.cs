@@ -8,6 +8,7 @@ using ModuleHost.Core.Abstractions;
 
 namespace Fdp.Examples.NetworkDemo.Systems
 {
+    [UpdateInPhase(SystemPhase.Simulation)]
     public class OwnershipInputSystem : IModuleSystem
     {
         private readonly int _localNodeId;

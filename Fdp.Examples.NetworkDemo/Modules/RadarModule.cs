@@ -8,7 +8,8 @@ using ModuleHost.Core.Abstractions;
 
 namespace Fdp.Examples.NetworkDemo.Modules
 {
-    [ExecutionPolicy(ExecutionMode.SlowBackground, priority: 1)]
+    [ExecutionPolicy(ExecutionMode.Synchronous)]
+    [UpdateInPhase(SystemPhase.Simulation)]
     [SnapshotPolicy(SnapshotMode.OnDemand)]
     public class RadarModule : IModuleSystem
     {
@@ -28,21 +29,18 @@ namespace Fdp.Examples.NetworkDemo.Modules
             
             _accumulator = 0;
             
-            // Request snapshot for thread-safe access
-            var snapshot = view.CaptureSnapshot();
-            
             // Scan for entities within range
-            var query = snapshot.Query()
+            var query = view.Query()
                 .With<NetworkIdentity>()
                 .With<DemoPosition>()
                 .Build();
             
             foreach (var entity in query) {
-                var pos = snapshot.GetComponentRO<DemoPosition>(entity);
+                var pos = view.GetComponentRO<DemoPosition>(entity);
                 // Simulate radar detection
                 if (Vector3.Distance(pos.Value, Vector3.Zero) < 1000f) {
                     _eventBus.Publish(new RadarContactEvent {
-                        EntityId = snapshot.GetComponentRO<NetworkIdentity>(entity).Value,
+                        EntityId = view.GetComponentRO<NetworkIdentity>(entity).Value,
                         Position = pos.Value,
                         Timestamp = DateTime.UtcNow
                     });

@@ -5,9 +5,11 @@ using Fdp.Kernel;
 using Fdp.Kernel.FlightRecorder;
 using FDP.Toolkit.Replication.Components;
 using ModuleHost.Core.Abstractions;
+using Fdp.Examples.NetworkDemo.Configuration;
 
 namespace Fdp.Examples.NetworkDemo.Systems
 {
+    [UpdateInPhase(SystemPhase.Input)]
     public class ReplayBridgeSystem : IModuleSystem, IDisposable
     {
         private readonly string _recordingPath;
@@ -30,11 +32,7 @@ namespace Fdp.Examples.NetworkDemo.Systems
         private void InitializeShadowWorld()
         {
             _shadowRepo = new EntityRepository();
-            _shadowRepo.RegisterComponent<NetworkIdentity>();
-            _shadowRepo.RegisterComponent<NetworkAuthority>();
-            _shadowRepo.RegisterComponent<DemoPosition>();
-            _shadowRepo.RegisterComponent<TurretState>();
-            _shadowRepo.RegisterManagedComponent<DescriptorOwnership>();
+            DemoComponentRegistry.Register(_shadowRepo);
 
             try
             {

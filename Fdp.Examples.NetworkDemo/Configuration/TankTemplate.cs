@@ -2,6 +2,7 @@ using Fdp.Examples.NetworkDemo.Components;
 using Fdp.Interfaces;
 using Fdp.Kernel;
 using FDP.Toolkit.Replication;
+using FDP.Toolkit.Replication.Components;
 
 namespace Fdp.Examples.NetworkDemo.Configuration
 {
@@ -15,6 +16,12 @@ namespace Fdp.Examples.NetworkDemo.Configuration
             tank.AddComponent(new DemoPosition());
             tank.AddComponent(new TurretState());
             tank.AddComponent(new Health { Value = 100 });
+            
+            // Network components
+            tank.AddComponent(new NetworkIdentity());
+            tank.AddComponent(new NetworkPosition());
+            tank.AddComponent(new NetworkVelocity());
+            tank.AddComponent(new ModuleHost.Core.Network.NetworkOwnership());
             
             // HARD REQUIREMENT: Chassis (Position/Rotation)
             // Entity stays as Ghost until this arrives

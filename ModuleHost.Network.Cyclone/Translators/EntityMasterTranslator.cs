@@ -1,12 +1,19 @@
 using System;
 using System.Collections.Generic;
 using Fdp.Kernel;
+using Fdp.Interfaces;
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
 using ModuleHost.Network.Cyclone.Components;
 using FDP.Toolkit.Replication.Components;
 using ModuleHost.Network.Cyclone.Services;
+using FDP.Toolkit.Replication.Services;
 using ModuleHost.Network.Cyclone.Topics;
+
+using NetworkEntityMap = FDP.Toolkit.Replication.Services.NetworkEntityMap;
+using IDescriptorTranslator = Fdp.Interfaces.IDescriptorTranslator;
+using IDataReader = Fdp.Interfaces.IDataReader;
+using IDataWriter = Fdp.Interfaces.IDataWriter;
 
 namespace ModuleHost.Network.Cyclone.Translators
 {
@@ -17,6 +24,7 @@ namespace ModuleHost.Network.Cyclone.Translators
         private readonly TypeIdMapper _typeMapper;
         
         public string TopicName => "SST_EntityMaster";
+        public long DescriptorOrdinal => -1;
 
         public EntityMasterTranslator(NetworkEntityMap entityMap, NodeIdMapper nodeMapper, TypeIdMapper typeMapper)
         {
@@ -25,11 +33,14 @@ namespace ModuleHost.Network.Cyclone.Translators
             _typeMapper = typeMapper;
         }
 
+        public void ApplyToEntity(Entity entity, object data, EntityRepository repo) { }
+
+
         public void PollIngress(IDataReader reader, IEntityCommandBuffer cmd, ISimulationView view)
         {
             foreach (var sample in reader.TakeSamples())
             {
-                if (sample.InstanceState != DdsInstanceState.Alive) continue;
+                if (sample.InstanceState != Fdp.Interfaces.NetworkInstanceState.Alive) continue;
                 if (sample.Data is not EntityMasterTopic topic) continue;
 
                 // Map Owner
@@ -43,7 +54,7 @@ namespace ModuleHost.Network.Cyclone.Translators
                 // _typeMapper.GetInternalId(topic.DisTypeValue); 
 
                 // Check if we already have this entity
-                if (_entityMap.TryGet(topic.EntityId, out var existingEntity))
+                if (_entityMap.TryGetEntity(topic.EntityId, out var existingEntity))
                 {
                     // Update existing
                     if (view.HasComponent<NetworkOwnership>(existingEntity))

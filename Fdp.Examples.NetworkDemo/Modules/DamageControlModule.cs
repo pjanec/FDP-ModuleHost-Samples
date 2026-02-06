@@ -8,13 +8,14 @@ using ModuleHost.Core.Abstractions;
 namespace Fdp.Examples.NetworkDemo.Modules
 {
     [ExecutionPolicy(ExecutionMode.Synchronous)]
+    [UpdateInPhase(SystemPhase.Simulation)]
     [WatchEvents(typeof(DetonationEvent))]
     public class DamageControlModule : IModuleSystem
     {
         public void Execute(ISimulationView view, float dt)
         {
             // Only executes when DetonationEvent occurs
-            var events = view.GetEvents<DetonationEvent>();
+            var events = view.ConsumeEvents<DetonationEvent>();
             
             foreach (var evt in events) {
                 // Apply damage to nearby entities

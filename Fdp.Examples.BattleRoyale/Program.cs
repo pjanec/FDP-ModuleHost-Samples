@@ -8,6 +8,7 @@ using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
 using FDP.Toolkit.Lifecycle;
 using FDP.Toolkit.Lifecycle.Events;
+using Fdp.Toolkit.Tkb;
 using ModuleHost.Network.Cyclone.Modules;
 using ModuleHost.Network.Cyclone.Services;
 using ModuleHost.Network.Cyclone.Translators;
@@ -42,8 +43,9 @@ class Program
         const int NetworkModuleId = 100;
         const int LocalNodeId = 1;
         
+        var tkb = new TkbDatabase();
         var topology = new StaticNetworkTopology(LocalNodeId, new[] { LocalNodeId });
-        var elm = new EntityLifecycleModule(new[] { NetworkModuleId });
+        var elm = new EntityLifecycleModule(tkb, new[] { NetworkModuleId });
         var gateway = new ModuleHost.Network.Cyclone.Modules.NetworkGatewayModule(NetworkModuleId, LocalNodeId, topology, elm);
         
         moduleHost.RegisterModule(elm);

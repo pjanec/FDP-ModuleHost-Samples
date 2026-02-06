@@ -18,6 +18,9 @@ namespace Fdp.Examples.NetworkDemo.Translators
 
         public string TopicName => "Tank_GeoState";
         public long DescriptorOrdinal => 5;
+        
+        // Helper for dynamic registration
+        public Type DescriptorType => typeof(GeoStateDescriptor);
 
         public GeodeticTranslator(IGeographicTransform geoTransform, NetworkEntityMap entityMap)
         {

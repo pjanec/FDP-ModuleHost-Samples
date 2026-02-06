@@ -1,11 +1,18 @@
 using System;
 using Fdp.Kernel;
+using Fdp.Interfaces;
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
 using ModuleHost.Network.Cyclone.Components;
 using FDP.Toolkit.Replication.Components;
 using ModuleHost.Network.Cyclone.Services;
+using FDP.Toolkit.Replication.Services;
 using ModuleHost.Network.Cyclone.Topics;
+
+using NetworkEntityMap = FDP.Toolkit.Replication.Services.NetworkEntityMap;
+using IDescriptorTranslator = Fdp.Interfaces.IDescriptorTranslator;
+using IDataReader = Fdp.Interfaces.IDataReader;
+using IDataWriter = Fdp.Interfaces.IDataWriter;
 
 namespace ModuleHost.Network.Cyclone.Translators
 {
@@ -14,20 +21,23 @@ namespace ModuleHost.Network.Cyclone.Translators
         private readonly NetworkEntityMap _entityMap;
         
         public string TopicName => "SST_EntityState";
+        public long DescriptorOrdinal => -1;
 
         public EntityStateTranslator(NetworkEntityMap entityMap)
         {
             _entityMap = entityMap;
         }
 
+        public void ApplyToEntity(Entity entity, object data, EntityRepository repo) { }
+
         public void PollIngress(IDataReader reader, IEntityCommandBuffer cmd, ISimulationView view)
         {
             foreach (var sample in reader.TakeSamples())
             {
-                if (sample.InstanceState != DdsInstanceState.Alive) continue;
+                if (sample.InstanceState != Fdp.Interfaces.NetworkInstanceState.Alive) continue;
                 if (sample.Data is not EntityStateTopic topic) continue;
 
-                if (_entityMap.TryGet(topic.EntityId, out var entity))
+                if (_entityMap.TryGetEntity(topic.EntityId, out var entity))
                 {
                      // Update NetworkPosition
                      cmd.SetComponent(entity, new NetworkPosition { Value = new System.Numerics.Vector3((float)topic.PositionX, (float)topic.PositionY, (float)topic.PositionZ) });

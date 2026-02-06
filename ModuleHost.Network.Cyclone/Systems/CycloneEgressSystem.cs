@@ -2,6 +2,10 @@ using System;
 using Fdp.Kernel;
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
+using Fdp.Interfaces; // For Interfaces
+
+using IDescriptorTranslator = Fdp.Interfaces.IDescriptorTranslator;
+using IDataWriter = Fdp.Interfaces.IDataWriter;
 
 namespace ModuleHost.Network.Cyclone.Systems
 {

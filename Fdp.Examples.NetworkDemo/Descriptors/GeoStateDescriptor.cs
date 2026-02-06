@@ -1,15 +1,16 @@
-using System.ComponentModel.DataAnnotations;
+using CycloneDDS.Schema;
 
 namespace Fdp.Examples.NetworkDemo.Descriptors
 {
-    public class GeoStateDescriptor
+    [DdsTopic("Tank_GeoState")]
+    public struct GeoStateDescriptor
     {
-        [Key]
-        public uint EntityId { get; set; }
+        [DdsKey]
+        public long EntityId;
         
-        public double Lat { get; set; }
-        public double Lon { get; set; }
-        public float Alt { get; set; }
-        public float Heading { get; set; }
+        public double Lat;
+        public double Lon;
+        public float Alt;
+        public float Heading;
     }
 }

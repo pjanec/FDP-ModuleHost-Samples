@@ -17,6 +17,12 @@ namespace Fdp.Examples.NetworkDemo.Systems
         public ConsoleKeyInfo ReadKey(bool intercept) => Console.ReadKey(intercept);
     }
 
+    public class NullInputSource : IInputSource
+    {
+        public bool KeyAvailable => false;
+        public ConsoleKeyInfo ReadKey(bool intercept) => default;
+    }
+
     [UpdateInPhase(SystemPhase.Input)]
     public class TimeInputSystem : IModuleSystem
     {

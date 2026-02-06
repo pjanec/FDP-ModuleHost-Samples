@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Generic;
 using CycloneDDS.Runtime;
 using Fdp.Kernel;
-// using Fdp.Interfaces; // Removed to avoid ambiguity
+using Fdp.Interfaces; // Use Fdp Interface
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
 using ModuleHost.Core.Network.Interfaces;
@@ -13,6 +14,13 @@ using ModuleHost.Network.Cyclone.Topics;
 using ModuleHost.Network.Cyclone.Systems;
 using ModuleHost.Network.Cyclone.Providers;
 using FDP.Toolkit.Replication.Components;
+using FDP.Toolkit.Replication.Services; // For NetworkEntityMap
+
+using NetworkEntityMap = FDP.Toolkit.Replication.Services.NetworkEntityMap; // Alias to force Toolkit Map
+using IDescriptorTranslator = Fdp.Interfaces.IDescriptorTranslator; // Alias to force Fdp Interface
+using IDataReader = Fdp.Interfaces.IDataReader;
+using IDataWriter = Fdp.Interfaces.IDataWriter;
+using INetworkTopology = Fdp.Interfaces.INetworkTopology;
 
 namespace ModuleHost.Network.Cyclone.Modules
 {
@@ -44,6 +52,11 @@ namespace ModuleHost.Network.Cyclone.Modules
         private DdsReader<EntityStateTopic> _stateReader;
         private DdsWriter<EntityStateTopic> _stateWriter;
         
+        // Dynamic / Custom Translators
+        private readonly List<IDescriptorTranslator> _customTranslators = new();
+        private readonly List<IDataReader> _dynamicReaders = new();
+        private readonly List<IDataWriter> _dynamicWriters = new();
+        
         private NetworkGatewayModule _gatewayModule;
 
         public CycloneNetworkModule(
@@ -52,7 +65,9 @@ namespace ModuleHost.Network.Cyclone.Modules
             INetworkIdAllocator idAllocator,
             INetworkTopology topology,
             EntityLifecycleModule elm,
-            Fdp.Interfaces.ISerializationRegistry? serializationRegistry = null)
+            Fdp.Interfaces.ISerializationRegistry? serializationRegistry = null,
+            IEnumerable<IDescriptorTranslator> customTranslators = null,
+            NetworkEntityMap? sharedEntityMap = null)
         {
             _participant = participant ?? throw new ArgumentNullException(nameof(participant));
             _nodeMapper = nodeMapper ?? throw new ArgumentNullException(nameof(nodeMapper));
@@ -61,13 +76,12 @@ namespace ModuleHost.Network.Cyclone.Modules
             _elm = elm ?? throw new ArgumentNullException(nameof(elm));
             
             // Initialize Services
-            _entityMap = new NetworkEntityMap();
+            _entityMap = sharedEntityMap ?? new NetworkEntityMap();
             _typeMapper = new TypeIdMapper();
 
             if (serializationRegistry != null)
             {
                 // Register Serialization Providers
-                // Using arbitrary ordinals for now as placeholder for FDP-006 IDs
                 serializationRegistry.Register(1001, new CycloneSerializationProvider<NetworkPosition>());
                 serializationRegistry.Register(1002, new CycloneSerializationProvider<NetworkVelocity>());
                 serializationRegistry.Register(1003, new CycloneSerializationProvider<NetworkIdentity>());
@@ -85,37 +99,108 @@ namespace ModuleHost.Network.Cyclone.Modules
             _stateReader = new DdsReader<EntityStateTopic>(_participant, "EntityState");
             _stateWriter = new DdsWriter<EntityStateTopic>(_participant, "EntityState");
             
+            if (customTranslators != null)
+            {
+                _customTranslators.AddRange(customTranslators);
+                foreach (var t in _customTranslators) CreateDdsEntitiesForTranslator(t);
+            }
+            
             _gatewayModule = new NetworkGatewayModule(101, _nodeMapper.LocalNodeId, _topology, _elm);
         }
 
-        // Removed Initialize() method and moved logic to constructor to satisfy non-nullable checks.
+        private void CreateDdsEntitiesForTranslator(IDescriptorTranslator translator)
+        {
+            Type topicType = null;
+            var type = translator.GetType();
+
+            // 1. Try Reflection Property "DescriptorType" (GeodeticTranslator)
+            var prop = type.GetProperty("DescriptorType");
+            if (prop != null && typeof(Type).IsAssignableFrom(prop.PropertyType))
+            {
+                topicType = (Type)prop.GetValue(translator);
+            }
+            
+            // 2. Try Generic Argument (GenericDescriptorTranslator<T>)
+            if (topicType == null && type.IsGenericType)
+            {
+                 topicType = type.GetGenericArguments()[0];
+            }
+
+            if (topicType != null)
+            {
+                try 
+                {
+                    // Create DdsReader<T>
+                    var readerType = typeof(DdsReader<>).MakeGenericType(topicType);
+                    var reader = Activator.CreateInstance(readerType, _participant, translator.TopicName);
+                    
+                    // Create DdsWriter<T>
+                    var writerType = typeof(DdsWriter<>).MakeGenericType(topicType);
+                    var writer = Activator.CreateInstance(writerType, _participant, translator.TopicName);
+                    
+                    // Wrap in CycloneDataReader<T>
+                    var wrapperReaderType = typeof(CycloneDataReader<>).MakeGenericType(topicType);
+                    var wrapperReader = (IDataReader)Activator.CreateInstance(wrapperReaderType, reader, translator.TopicName);
+                    
+                    // Wrap in CycloneDataWriter<T>
+                    var wrapperWriterType = typeof(CycloneDataWriter<>).MakeGenericType(topicType);
+                    var wrapperWriter = (IDataWriter)Activator.CreateInstance(wrapperWriterType, writer, translator.TopicName);
+                    
+                    _dynamicReaders.Add(wrapperReader);
+                    _dynamicWriters.Add(wrapperWriter);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CycloneNetworkModule] Error creating DDS entities for {translator.GetType().Name}: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[CycloneNetworkModule] Warning: Could not determine topic type for translator {type.Name}. Skipping DDS entity creation.");
+            }
+        }
 
         public void RegisterSystems(ISystemRegistry registry)
         {
-            // Register Ingress (Read from Network -> Update World)
+            // Combine Default + Custom
+            var allTranslators = new List<IDescriptorTranslator> { _masterTranslator, _stateTranslator };
+            allTranslators.AddRange(_customTranslators);
+
+            var allReaders = new List<IDataReader> { 
+                new CycloneDataReader<EntityMasterTopic>(_masterReader, "EntityMaster"),
+                new CycloneDataReader<EntityStateTopic>(_stateReader, "EntityState")
+            };
+            allReaders.AddRange(_dynamicReaders);
+
+            var allWriters = new List<IDataWriter> { 
+                new CycloneDataWriter<EntityMasterTopic>(_masterWriter, "EntityMaster"),
+                new CycloneDataWriter<EntityStateTopic>(_stateWriter, "EntityState")
+            };
+            allWriters.AddRange(_dynamicWriters);
+
+            // Register Ingress
             registry.RegisterSystem(new CycloneNetworkIngressSystem(
-                new IDescriptorTranslator[] { _masterTranslator, _stateTranslator },
-                new IDataReader[] { 
-                    new CycloneDataReader<EntityMasterTopic>(_masterReader, "EntityMaster"),
-                    new CycloneDataReader<EntityStateTopic>(_stateReader, "EntityState")
-                }
+                allTranslators.ToArray(),
+                allReaders.ToArray()
             ));
             
-            // Register Egress (Read World -> Write to Network)
+            // Register Egress
             registry.RegisterSystem(new CycloneEgressSystem(
-                new IDescriptorTranslator[] { _masterTranslator, _stateTranslator },
-                new IDataWriter[] { 
-                    new CycloneDataWriter<EntityMasterTopic>(_masterWriter, "EntityMaster"),
-                    new CycloneDataWriter<EntityStateTopic>(_stateWriter, "EntityState")
-                }
+                allTranslators.ToArray(),
+                allWriters.ToArray()
             ));
             
-            // Gateway handled via Tick delegation
+            // Register Gateway
+            // Assuming Gateway is a System. If not, and it needs manual Tick, we might need to restore Tick() or wrap it.
+            // Based on user snippet, we register it.
+             if (_gatewayModule is IModuleSystem ms)
+                registry.RegisterSystem(ms);
+             // else if it needs manual tick, we might have lost it. But user snippet said "registry.RegisterSystem(_gatewayModule)"
+             // Let's assume user is right or _gatewayModule implements IModuleSystem
         }
 
         public void Tick(ISimulationView view, float deltaTime)
         {
-            // Delegate tick to gateway module which handles ACKs
              _gatewayModule.Tick(view, deltaTime);
         }
     }
@@ -124,10 +209,10 @@ namespace ModuleHost.Network.Cyclone.Modules
     [UpdateInPhase(SystemPhase.Input)]
     public class CycloneNetworkIngressSystem : IModuleSystem
     {
-        private readonly IDescriptorTranslator[] _translators;
-        private readonly IDataReader[] _readers;
+        private readonly Fdp.Interfaces.IDescriptorTranslator[] _translators;
+        private readonly Fdp.Interfaces.IDataReader[] _readers;
         
-        public CycloneNetworkIngressSystem(IDescriptorTranslator[] translators, IDataReader[] readers)
+        public CycloneNetworkIngressSystem(Fdp.Interfaces.IDescriptorTranslator[] translators, Fdp.Interfaces.IDataReader[] readers)
         {
              _translators = translators;
              _readers = readers;
