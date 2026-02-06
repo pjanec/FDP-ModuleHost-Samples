@@ -1,0 +1,84 @@
+using System;
+using Fdp.Kernel;
+using ModuleHost.Core.Abstractions;
+using Fdp.Examples.NetworkDemo.Components;
+
+namespace Fdp.Examples.NetworkDemo.Systems
+{
+    public interface IInputSource
+    {
+        bool KeyAvailable { get; }
+        ConsoleKeyInfo ReadKey(bool intercept);
+    }
+
+    public class ConsoleInputSource : IInputSource
+    {
+        public bool KeyAvailable => Console.KeyAvailable;
+        public ConsoleKeyInfo ReadKey(bool intercept) => Console.ReadKey(intercept);
+    }
+
+    [UpdateInPhase(SystemPhase.Input)]
+    public class TimeInputSystem : IModuleSystem
+    {
+        private readonly IInputSource _input;
+
+        public TimeInputSystem(IInputSource input = null)
+        {
+            _input = input ?? new ConsoleInputSource();
+        }
+
+        public void Execute(ISimulationView view, float deltaTime)
+        {
+            if (view is not EntityRepository repo) return;
+
+            // Ensure Registered
+            try 
+            { 
+               repo.RegisterComponent<TimeConfiguration>(); 
+            } 
+            catch { }
+
+            TimeConfiguration config;
+            if (repo.HasSingleton<TimeConfiguration>())
+            {
+                config = repo.GetSingleton<TimeConfiguration>();
+            }
+            else
+            {
+                config = new TimeConfiguration { TimeScale = 1.0f, IsPaused = false };
+                repo.SetSingleton(config);
+            }
+
+            bool changed = false;
+            while (_input.KeyAvailable)
+            {
+                var key = _input.ReadKey(true).Key;
+                switch (key)
+                {
+                    case ConsoleKey.Spacebar:
+                        config.IsPaused = !config.IsPaused;
+                        changed = true;
+                        break;
+                    case ConsoleKey.RightArrow:
+                        config.TimeScale += 0.5f;
+                        changed = true;
+                        break;
+                    case ConsoleKey.LeftArrow:
+                        config.TimeScale -= 0.5f;
+                        if (config.TimeScale < 0.1f) config.TimeScale = 0.1f;
+                        changed = true;
+                        break;
+                    case ConsoleKey.R:
+                        config.TimeScale = 1.0f;
+                        changed = true;
+                        break;
+                }
+            }
+
+            if (changed)
+            {
+                repo.SetSingleton(config);
+            }
+        }
+    }
+}
