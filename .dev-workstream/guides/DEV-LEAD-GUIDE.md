@@ -371,10 +371,10 @@ Always include sections on:
 
 When developer submits `.dev-workstream/reports/BATCH-XX-REPORT.md`:
 
+
 Basic mind set when reviewing:
  - believe nothing, verify everything thoroughly
- - check especially if the unit tests check what the design wants
-
+ - check especially if the unit tests fulle cover what the design wants and not something else or just partially
 
 #### Step 1: Read the Report (5-10 minutes)
 
@@ -1084,6 +1084,21 @@ When you commit this batch, use the following message:
 
 ---
 
+## 🚨 Watch for Red Flags
+
+### During Development
+
+🚨 **Too quiet** - No questions in 3+ days on complex batch
+- **Action:** Check in, ask if blocked
+
+🚨 **Too many basic questions** - Developer doesn't understand fundamentals
+- **Action:** Point to docs, consider pairing session
+
+🚨 **Scope creep** - Developer working beyond batch scope
+- **Action:** Clarify scope, defer extras to future batch
+
+🚨 **Long delays** - Batch taking 2x+ estimate
+- **Action:** Status check, consider breaking into smaller batches
 
 ### During Review
 
