@@ -41,10 +41,6 @@ namespace Fdp.Examples.NetworkDemo.Systems
             _shadowRepo.RegisterManagedComponent<Fdp.Interfaces.ITkbDatabase>();
             _shadowRepo.RegisterManagedComponent<Fdp.Interfaces.ISerializationRegistry>();
             
-            // Register components missing from DemoComponentRegistry but present in App
-            _shadowRepo.RegisterComponent<Fdp.Examples.NetworkDemo.Components.TimeModeComponent>();
-            _shadowRepo.RegisterComponent<Fdp.Examples.NetworkDemo.Components.FrameAckComponent>();
-
             try
             {
                 _reader = new RecordingReader(_recordingPath);

@@ -40,12 +40,12 @@
 - [x] **FDPLT-014** Test - Entity Lifecycle [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-014-test---entity-lifecycle)
 - [x] **FDPLT-015** Test - Orphan Protection [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-015-test---orphan-protection)
 - [x] **FDPLT-016** Test - Partial Ownership [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-016-test---partial-ownership)
-- [⚠️] **FDPLT-017** Additional Test Cases [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-017-additional-test-cases) *Partially Complete*
-  - Dynamic Ownership Transfer
-  - Sub-Entity Hierarchy Cleanup
-  - Component Synchronization
-  - Deterministic Time Mode Switch
-  - Distributed Replay
+- [x] **FDPLT-017** Additional Test Cases [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-017-additional-test-cases)
+  - [x] Dynamic Ownership Transfer
+  - [x] Sub-Entity Hierarchy Cleanup
+  - [x] Component Synchronization
+  - [x] Deterministic Time Mode Switch
+  - [x] Distributed Replay (Automated Test Missing)
 
 ---
 

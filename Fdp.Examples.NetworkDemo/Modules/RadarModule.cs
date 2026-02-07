@@ -8,7 +8,7 @@ using ModuleHost.Core.Abstractions;
 
 namespace Fdp.Examples.NetworkDemo.Modules
 {
-    [ExecutionPolicy(ExecutionMode.Synchronous)]
+    [ExecutionPolicy(ExecutionMode.SlowBackground, priority: 1)]
     [UpdateInPhase(SystemPhase.Simulation)]
     [SnapshotPolicy(SnapshotMode.OnDemand)]
     public class RadarModule : IModuleSystem

@@ -305,4 +305,4 @@ Total Progress                   [##--------] 17% (3/18 tasks)
 
 ---
 
-**Next Developer:** Assigned to BATCH-03 (Fixes & Advanced Features). See `.dev-workstream/batches/BATCH-03-INSTRUCTIONS.md`.
+**Next Developer:** Assigned to BATCH-07 (Optimization). See `.dev-workstream/batches/BATCH-07-INSTRUCTIONS.md`.

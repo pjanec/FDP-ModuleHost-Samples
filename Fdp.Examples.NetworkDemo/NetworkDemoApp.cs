@@ -188,10 +188,6 @@ namespace Fdp.Examples.NetworkDemo
             
             recorder = null;
 
-            // Ensure these are registered for Replay too!
-            World.RegisterComponent<Fdp.Examples.NetworkDemo.Components.TimeModeComponent>();
-            World.RegisterComponent<Fdp.Examples.NetworkDemo.Components.FrameAckComponent>();
-
             if (!isReplay)
             {
                 // === LIVE MODE ===

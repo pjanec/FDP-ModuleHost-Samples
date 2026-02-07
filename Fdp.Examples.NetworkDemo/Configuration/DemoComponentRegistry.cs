@@ -34,6 +34,8 @@ namespace Fdp.Examples.NetworkDemo.Configuration
             world.RegisterComponent<NetworkAuthority>();
             world.RegisterManagedComponent<DescriptorOwnership>();
             world.RegisterComponent<Health>();
+            world.RegisterComponent<TimeModeComponent>();
+            world.RegisterComponent<FrameAckComponent>();
 
             // Demo tracking
             world.RegisterComponent<NetworkedEntity>(); 
