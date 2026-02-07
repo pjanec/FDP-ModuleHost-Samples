@@ -73,6 +73,7 @@ namespace Fdp.Examples.NetworkDemo
         public int LocalNodeId => localInternalId;
         public Fdp.Interfaces.ITkbDatabase Tkb => tkb;
         public FDP.Toolkit.Replication.Services.NetworkEntityMap EntityMap { get; private set; }
+        public Fdp.Kernel.FdpEventBus EventBus { get; private set; } // For testing
         
         private DdsParticipant participant;
         private AsyncRecorder recorder;
@@ -83,11 +84,13 @@ namespace Fdp.Examples.NetworkDemo
         private int localInternalId;
         private NodeIdMapper nodeMapper;
         private TkbDatabase tkb;
+        private FDP.Toolkit.Time.Controllers.DistributedTimeCoordinator? _timeCoordinator;
+        private FDP.Toolkit.Time.Controllers.SlaveTimeModeListener? _slaveListener;
         
         private readonly ConcurrentQueue<Action<EntityRepository>> _actionQueue = new();
         public void EnqueueAction(Action<EntityRepository> action) => _actionQueue.Enqueue(action);
 
-        public async Task InitializeAsync(int nodeId, bool replayMode, string recPath = null)
+        public async Task InitializeAsync(int nodeId, bool replayMode, string recPath = null, bool autoSpawn = true)
         {
             using (ScopeContext.PushProperty("NodeId", nodeId))
             {
@@ -109,18 +112,17 @@ namespace Fdp.Examples.NetworkDemo
             var accumulator = new EventAccumulator();
             Kernel = new ModuleHostKernel(World, accumulator);
             var eventBus = new FdpEventBus(); // Shared event bus
+            EventBus = eventBus;
             
             // --- 1. Network & Topology ---
             participant = new DdsParticipant(domainId: 0);
-            int GetInternalId(int instance) => new NodeIdMapper(localDomain: 0, localInstance: instance).LocalNodeId;
+            // Force simple ID mapping for Demo/Test to ensure uniqueness in shared process
             nodeMapper = new NodeIdMapper(localDomain: 0, localInstance: instanceId);
-            localInternalId = nodeMapper.LocalNodeId;
+            localInternalId = instanceId / 100; // 100->1, 200->2
             var idAllocator = new DdsIdAllocator(participant, $"Node_{instanceId}");
             
             var peerInstances = new int[] { 100, 200 }.Where(x => x != instanceId).ToArray();
-            // CORRECT FIX: Use the actual nodeMapper to generating readings for peers.
-            // This ensures they get unique IDs (statring from 2) and are registered in the mapper.
-            var peerInternalIds = peerInstances.Select(p => nodeMapper.GetOrRegisterInternalId(new ModuleHost.Network.Cyclone.Topics.NetworkAppId { AppDomainId = 0, AppInstanceId = p })).ToArray();
+            var peerInternalIds = peerInstances.Select(p => p / 100).ToArray();
             var topology = new StaticNetworkTopology(localNodeId: localInternalId, peerInternalIds);
 
             // --- 2. TKB & Serialization ---
@@ -138,6 +140,12 @@ namespace Fdp.Examples.NetworkDemo
 
             serializationRegistry.Register(DemoDescriptors.Physics, new CycloneSerializationProvider<NetworkPosition>());
             serializationRegistry.Register(DemoDescriptors.Master, new CycloneSerializationProvider<NetworkVelocity>());
+
+            // Time Sync Events
+            serializationRegistry.Register(100, new CycloneSerializationProvider<FDP.Toolkit.Time.Messages.TimePulseDescriptor>());
+            serializationRegistry.Register(101, new CycloneSerializationProvider<FDP.Toolkit.Time.Messages.FrameOrderDescriptor>());
+            serializationRegistry.Register(102, new CycloneSerializationProvider<FDP.Toolkit.Time.Messages.FrameAckDescriptor>());
+            serializationRegistry.Register(103, new CycloneSerializationProvider<FDP.Toolkit.Time.Messages.SwitchTimeModeEvent>());
 
             // --- 3. Modules Registration ---
             var elm = new EntityLifecycleModule(tkb, Array.Empty<int>()); 
@@ -185,6 +193,8 @@ namespace Fdp.Examples.NetworkDemo
                 
                 // Reserve System IDs
                 World.ReserveIdRange(FdpConfig.SYSTEM_ID_RANGE);
+                World.RegisterComponent<Fdp.Examples.NetworkDemo.Components.TimeModeComponent>();
+                World.RegisterComponent<Fdp.Examples.NetworkDemo.Components.FrameAckComponent>();
                 FdpLog<NetworkDemoApp>.Info($"[Init] Reserved ID range 0-{FdpConfig.SYSTEM_ID_RANGE}");
                 
                 // Register Systems
@@ -194,13 +204,15 @@ namespace Fdp.Examples.NetworkDemo
                 } catch {
                     inputSource = new NullInputSource();
                 }
-                Kernel.RegisterGlobalSystem(new TimeInputSystem(inputSource)); 
+                Kernel.RegisterGlobalSystem(new TimeInputSystem(inputSource, eventBus)); 
                 Kernel.RegisterGlobalSystem(new TransformSyncSystem());
                 
                 // Advanced Modules (Part B)
                 Kernel.RegisterGlobalSystem(new RadarModule(eventBus));
                 Kernel.RegisterGlobalSystem(new DamageControlModule());
                 Kernel.RegisterGlobalSystem(new OwnershipInputSystem(localInternalId, eventBus));
+                Kernel.RegisterGlobalSystem(new TimeSyncSystem(eventBus, instanceId == 100));
+                Kernel.RegisterGlobalSystem(new Fdp.Examples.NetworkDemo.Systems.PacketBridgeSystem(eventBus, instanceId == 100, localInternalId));
 
                 // Setup Recorder
                 recorder = new AsyncRecorder(recordingPath);
@@ -218,6 +230,20 @@ namespace Fdp.Examples.NetworkDemo
                 // Time Controller
                 var timeController = new MasterTimeController(eventBus, null);
                 Kernel.SetTimeController(timeController);
+
+                var timeConfig = new FDP.Toolkit.Time.Controllers.TimeControllerConfig { LocalNodeId = localInternalId };
+                timeConfig.SyncConfig.PauseBarrierFrames = 10; // Reduced barrier for test speed
+
+                if (instanceId == 100)
+                {
+                     var slaveSet = new System.Collections.Generic.HashSet<int>(peerInternalIds);
+                     _timeCoordinator = new FDP.Toolkit.Time.Controllers.DistributedTimeCoordinator(
+                        eventBus, Kernel, timeConfig, slaveSet);
+                }
+                else
+                {
+                     _slaveListener = new FDP.Toolkit.Time.Controllers.SlaveTimeModeListener(eventBus, Kernel, timeConfig);
+                }
             }
             else
             {
@@ -257,6 +283,19 @@ namespace Fdp.Examples.NetworkDemo
 
             Kernel.Initialize();
             
+            if (!isReplay)
+            {
+                 var entity = World.CreateEntity();
+                 World.AddComponent(entity, new NetworkIdentity { Value = 999 });
+                 World.AddComponent(entity, new FDP.Toolkit.Replication.Components.NetworkAuthority { 
+                     PrimaryOwnerId = nodeMapper.GetOrRegisterInternalId(new ModuleHost.Network.Cyclone.Topics.NetworkAppId { AppDomainId = 0, AppInstanceId = 100 }), 
+                     LocalNodeId = localInternalId 
+                 });
+                 World.AddComponent(entity, new Fdp.Examples.NetworkDemo.Components.TimeModeComponent());
+                 EntityMap.Register(999, entity);
+                 FdpLog<NetworkDemoApp>.Info($"[INIT] Time Sync Entity Created (ID 999) [Local:{localInternalId}]");
+            }
+            
             FdpLog<NetworkDemoApp>.Info("[INIT] Kernel initialized");
             FdpLog<NetworkDemoApp>.Info("[INIT] Waiting for peer discovery...");
             
@@ -265,9 +304,15 @@ namespace Fdp.Examples.NetworkDemo
             
             if (!isReplay)
             {
-                 // Disable Auto-Spawn for Tests/cleaner control
-                 // SpawnLocalEntities(World, tkb, instanceId, localInternalId);
-                 FdpLog<NetworkDemoApp>.Info($"[SPAWN] Auto-spawn disabled for testing/demo control");
+                 if (autoSpawn)
+                 {
+                     SpawnLocalEntities(World, tkb, instanceId, localInternalId);
+                     FdpLog<NetworkDemoApp>.Info($"[SPAWN] Auto-spawn executed for {instanceId}");
+                 }
+                 else
+                 {
+                     FdpLog<NetworkDemoApp>.Info($"[SPAWN] Auto-spawn disabled for testing/demo control");
+                 }
             }
             } // End ScopeContext
         }
@@ -289,6 +334,10 @@ namespace Fdp.Examples.NetworkDemo
 
         public void Update(float dt)
         {
+            // Time Coordination Update
+            _timeCoordinator?.Update();
+            _slaveListener?.Update();
+
             // Process queued actions on the simulation thread
             while (_actionQueue.TryDequeue(out var action))
             {
@@ -308,7 +357,14 @@ namespace Fdp.Examples.NetworkDemo
             {
                 World.Tick(); // CRITICAL: Advance global version in Replay
             }
-            Kernel.Update(dt);
+            _timeCoordinator?.Update();
+            _slaveListener?.Update();
+            // Use Kernel.Update() to let the TimeController (Master/Stepped/Slave) drive the simulation time.
+            // Using Kernel.Update(dt) bypasses the controller logic (breaking Stepped mode).
+            Kernel.Update(); 
+            // Kernel.Update(dt); 
+            // Ensure events flow
+            EventBus.SwapBuffers();
         }
 
         public void Stop()

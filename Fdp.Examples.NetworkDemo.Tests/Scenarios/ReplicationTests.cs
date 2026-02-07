@@ -43,8 +43,8 @@ namespace Fdp.Examples.NetworkDemo.Tests.Scenarios
             Assert.NotEqual(Entity.Null, tankB);
             
             // Verify logs - commenting out as exact messages are not confirmed in codebase search
-            // env.AssertLogContains(100, "Published descriptor");
-            // env.AssertLogContains(200, "Created ghost");
+            env.AssertLogContains(100, "Auth OK");
+            env.AssertLogContains(200, "Created Proxy Entity");
         }
     }
 }

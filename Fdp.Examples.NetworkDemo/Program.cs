@@ -18,7 +18,7 @@ class Program
         LogSetup.ConfigureForDevelopment(instanceId);
         
         using var app = new NetworkDemoApp();
-        await app.InitializeAsync(instanceId, isReplay, recordingPath);
+        await app.InitializeAsync(instanceId, isReplay, recordingPath, autoSpawn: true);
         
         Console.WriteLine("==========================================");
         Console.WriteLine("           Values Running...              ");

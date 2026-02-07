@@ -1,0 +1,20 @@
+using FDP.Interfaces.Abstractions;
+using CycloneDDS.Schema;
+// using ModuleHost.Core.Time; // Unused if we use int
+
+namespace Fdp.Examples.NetworkDemo.Components
+{
+    [FdpDescriptor(200, "TimeModeComponent")]
+    [DdsTopic("TimeModeComponent")]
+    public partial struct TimeModeComponent
+    {
+        [DdsKey]
+        public long EntityId;
+        
+        public int TargetMode; // Cast to TimeMode
+        public long FrameNumber;
+        public double TotalTime;
+        public float FixedDeltaSeconds;
+        public long BarrierFrame;
+    }
+}

@@ -49,86 +49,9 @@
 
 ---
 
-## Phase 4: Documentation
+## Phase 4: Fixing hacks made during refactor
 
-**Goal:** Ensure all infrastructure is documented for new developers.
+- [ ] **FDPLT-020** Optimize Generic Reflection [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-020-optimize-generic-reflection) *Phase 4*
 
-- [ ] **FDPLT-018** Update ONBOARDING.md [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-018-update-onboardingmd)
 
----
 
-## Progress Summary
-
-- **Total Tasks:** 18
-- **Completed:** 3 (Foundation tasks)
-- **In Progress:** 5 (Logging integration)
-- **Not Started:** 10
-
-**Phase 1 Status:** Foundation complete, integration in progress
-**Phase 2 Status:** Not started
-**Phase 3 Status:** Not started
-**Phase 4 Status:** Not started
-
----
-
-## Current Sprint Focus
-
-**Recommended Order:**
-1. FDPLT-001 (Dependencies) - Foundation
-2. FDPLT-002 (FdpLog) - Core logging
-3. FDPLT-003 (LogSetup) - Configuration
-4. FDPLT-004 (Scope) - Context flow
-5. FDPLT-008 (Refactor) - Testability
-6. FDPLT-009 (Test Project) - Test foundation
-
-Once logging works in development mode, proceed with:
-7. FDPLT-005, 006, 007 (Replace Console) - Production logging
-8. FDPLT-010, 011 (Test Infrastructure) - Testing framework
-9. FDPLT-012-017 (Tests) - Verification
-10. FDPLT-018 (Documentation) - Finalize
-
----
-
-## Notes
-
-- **Dependency:** FDPLT-005 through FDPLT-007 require FDPLT-002 (FdpLog) to be complete
-- **Dependency:** FDPLT-012 through FDPLT-017 require FDPLT-011 (DistributedTestEnv) to be complete
-- **Parallel Work:** After FDPLT-008, logging migration and test implementation can proceed in parallel
-- **Verification:** Run all tests after each phase completes
-- **Integration:** Interactive demo must still work after logging migration
-
----
-
-## Risk Mitigation
-
-### High-Risk Tasks
-- **FDPLT-004** - AsyncLocal scope flow across Task.Run
-  - **Mitigation:** FDPLT-012 verifies this works before relying on it
-- **FDPLT-008** - Refactoring NetworkDemoApp
-  - **Mitigation:** Keep old Program.cs as backup until verified
-- **FDPLT-015** - Orphan protection test
-  - **Mitigation:** May require adding egress filter mechanism
-
-### Testing Strategy
-- Implement FDPLT-012 (scope test) FIRST to validate infrastructure
-- Run existing NetworkDemo after each logging change to ensure no regression
-- Keep verbose logging enabled during initial rollout
-- Gradually tighten log levels as confidence increases
-
----
-
-## Definition of Done
-
-A task is considered complete when:
-- ✅ All code compiles without warnings
-- ✅ All success criteria from task details are met
-- ✅ Unit tests pass (if applicable)
-- ✅ Integration with existing code verified
-- ✅ Code reviewed (self or peer)
-- ✅ Documentation updated (if user-facing)
-
-For test tasks specifically:
-- ✅ Test passes reliably (3+ consecutive runs)
-- ✅ Test fails when expected condition is violated (negative test)
-- ✅ Test execution time is acceptable
-- ✅ Test has clear assertion messages

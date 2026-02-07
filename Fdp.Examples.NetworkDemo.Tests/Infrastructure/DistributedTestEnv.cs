@@ -45,6 +45,10 @@ namespace Fdp.Examples.NetworkDemo.Tests.Infrastructure
             NodeA = new NetworkDemoApp();
             NodeB = new NetworkDemoApp();
             
+            var uniqueId = Guid.NewGuid().ToString("N");
+            var pathA = $"node_100_{uniqueId}.fdp";
+            var pathB = $"node_200_{uniqueId}.fdp";
+            
             var initTcsA = new TaskCompletionSource<bool>();
             var initTcsB = new TaskCompletionSource<bool>();
 
@@ -53,7 +57,7 @@ namespace Fdp.Examples.NetworkDemo.Tests.Infrastructure
                 using (ScopeContext.PushProperty("NodeId", 100))
                 {
                     try {
-                        await NodeA.InitializeAsync(100, false);
+                        await NodeA.InitializeAsync(100, false, pathA, autoSpawn: false);
                         initTcsA.SetResult(true);
                         await NodeA.RunLoopAsync(_cts.Token);
                     } catch (TaskCanceledException) {
@@ -71,7 +75,7 @@ namespace Fdp.Examples.NetworkDemo.Tests.Infrastructure
                 using (ScopeContext.PushProperty("NodeId", 200))
                 {
                     try {
-                        await NodeB.InitializeAsync(200, false);
+                        await NodeB.InitializeAsync(200, false, pathB, autoSpawn: false);
                         initTcsB.SetResult(true);
                         await NodeB.RunLoopAsync(_cts.Token);
                     } catch (TaskCanceledException) {

@@ -21,6 +21,7 @@ namespace Fdp.Examples.NetworkDemo.Translators
 
         public string TopicName => "OwnershipUpdate";
         public long DescriptorOrdinal => -1; // Not a numbered descriptor
+        public Type DescriptorType => typeof(TopicMsgs.OwnershipUpdate);
         
         public OwnershipUpdateTranslator(NodeIdMapper nodeMapper)
         {

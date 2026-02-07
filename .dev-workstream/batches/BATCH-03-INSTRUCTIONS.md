@@ -1,7 +1,7 @@
 # BATCH-03: Fixes & Advanced Distributed Features
 
 **Batch Number:** BATCH-03  
-**Tasks:** FDPLT-017, FIX-01, FIX-02, FIX-03, FIX-04, FIX-05  
+**Tasks:** FDPLT-017, FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, FIX-06, CLEANUP-02  
 **Phase:** Stabilization & Advanced Features  
 **Estimated Effort:** 4-6 hours  
 **Priority:** HIGH  
@@ -36,6 +36,8 @@ Batch 02 was partially successful but left some technical debt and missed the ad
 4. **Task 4 (Fix):** Restore Auto-Spawn (FIX-04) → Verify Manual Run ✅
 5. **Task 5 (Fix):** Fix Translator Registration (FIX-05) → Verify Log Cleanliness ✅
 6. **Task 6 (Feat):** Implement AdvancedTests.cs → Verify Pass ✅
+7. **Task 7 (Perf):** Optimize Generic Reflection (FIX-06) → Verify Tests Pass ✅
+8. **Task 8 (Cleanup):** Remove Debug Hacks (CLEANUP-02) → Verify Codebase ✅
 
 ---
 
@@ -127,6 +129,24 @@ Implement the missing Task 6 from Batch 02. Verify Deterministic Time Mode Switc
 
 **Design Ref:**
 See [LOGGING-AND-TESTING-DESIGN.md](../../docs/LOGGING-AND-TESTING-DESIGN.md#62-runtime-switching).
+
+---
+
+
+---
+
+### Task 8: Remove Debug Hacks (CLEANUP-02)
+
+**File:** `ModuleHost/FDP.Toolkit.Time/Controllers/DistributedTimeCoordinator.cs` (and any others)
+
+**Description:**
+The developer left file I/O debug code: `System.IO.File.WriteAllText("debug_master.txt", ...)`
+This is unacceptable. Remove all file writes and `Console.WriteLine` calls from the new Time modules. Use `FdpLog<T>` if necessary, or remove entirely if it was just for debugging.
+
+**Requirements:**
+1.  Search for `System.IO.File` and `WriteAllText` in the entire solution.
+2.  Search for `Console.WriteLine` in `FDP.Toolkit.Time` namespace.
+3.  Remove or replace with `FdpLog`.
 
 ---
 

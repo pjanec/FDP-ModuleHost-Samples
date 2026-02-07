@@ -2,6 +2,9 @@ using System;
 using Fdp.Kernel;
 using ModuleHost.Core.Abstractions;
 using Fdp.Examples.NetworkDemo.Components;
+using ModuleHost.Core.Network;
+using FDP.Toolkit.Time.Messages;
+using ModuleHost.Core.Time;
 
 namespace Fdp.Examples.NetworkDemo.Systems
 {
@@ -27,10 +30,12 @@ namespace Fdp.Examples.NetworkDemo.Systems
     public class TimeInputSystem : IModuleSystem
     {
         private readonly IInputSource _input;
+        private readonly FdpEventBus _eventBus;
 
-        public TimeInputSystem(IInputSource input = null)
+        public TimeInputSystem(IInputSource input = null, FdpEventBus eventBus = null)
         {
             _input = input ?? new ConsoleInputSource();
+            _eventBus = eventBus;
         }
 
         public void Execute(ISimulationView view, float deltaTime)
@@ -77,6 +82,17 @@ namespace Fdp.Examples.NetworkDemo.Systems
                     case ConsoleKey.R:
                         config.TimeScale = 1.0f;
                         changed = true;
+                        break;
+                    case ConsoleKey.T:
+                        if (_eventBus != null)
+                        {
+                            _eventBus.Publish(new SwitchTimeModeEvent 
+                            { 
+                                TargetMode = TimeMode.Deterministic,
+                                // Let coordinator decide barrier
+                                BarrierFrame = 0 
+                            });
+                        }
                         break;
                 }
             }

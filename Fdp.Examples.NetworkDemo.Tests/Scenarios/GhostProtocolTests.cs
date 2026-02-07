@@ -44,26 +44,9 @@ namespace Fdp.Examples.NetworkDemo.Tests.Scenarios
 
             // 2. Wait for propagation
             // Node B should receive EntityMaster and create the ghost
-            await _env.WaitForCondition(app => 
-            {
-                 var query = app.World.Query().With<NetworkIdentity>().Build();
-                 foreach(var e in query)
-                 {
-                     if (app.World.GetComponent<NetworkIdentity>(e).Value == id) return true;
-                 }
-                 return false;
-            }, 
-            appB, 5000);
+            await _env.WaitForCondition(app => CheckGhostExists(app, id), appB, 5000);
 
-            var ghostB = Entity.Null;
-            foreach(var e in appB.World.Query().With<NetworkIdentity>().Build())
-            {
-                if (appB.World.GetComponent<NetworkIdentity>(e).Value == id)
-                {
-                    ghostB = e;
-                    break;
-                }
-            }
+            var ghostB = GetGhostEntity(appB, id);
             Assert.NotEqual(Entity.Null, ghostB);
 
             _output.WriteLine($"Node B obtained ghost: {ghostB}");
@@ -72,8 +55,8 @@ namespace Fdp.Examples.NetworkDemo.Tests.Scenarios
             // Should NOT have NetworkPosition
             Assert.False(appB.World.HasComponent<NetworkPosition>(ghostB), "Ghost should not have Position yet");
             
-            // 4. Assert Ghost is not logically 'Active' (if we had an Active tag)
-            // Since we don't use Active tags in this demo, missing position is the check.
+            // 4. Assert Ghost is logically 'Active' (Ghost Protocol implementation in this demo allows partial activation)
+            Assert.Equal(EntityLifecycle.Active, appB.World.GetLifecycleState(ghostB));
 
             // 5. Provide Data "Later" (Simulate data arrival)
             // Now add Position to A
@@ -88,6 +71,28 @@ namespace Fdp.Examples.NetworkDemo.Tests.Scenarios
                 appB, 5000);
             
             Assert.True(appB.World.HasComponent<NetworkPosition>(ghostB), "Ghost should receive Position now");
+        }
+
+        private bool CheckGhostExists(NetworkDemoApp app, long id)
+        {
+             var query = app.World.Query().With<NetworkIdentity>().Build();
+             foreach(var e in query)
+             {
+                 if (app.World.GetComponent<NetworkIdentity>(e).Value == id) return true;
+             }
+             return false;
+        }
+
+        private Entity GetGhostEntity(NetworkDemoApp app, long id)
+        {
+            foreach(var e in app.World.Query().With<NetworkIdentity>().Build())
+            {
+                if (app.World.GetComponent<NetworkIdentity>(e).Value == id)
+                {
+                    return e;
+                }
+            }
+            return Entity.Null;
         }
     }
 }
