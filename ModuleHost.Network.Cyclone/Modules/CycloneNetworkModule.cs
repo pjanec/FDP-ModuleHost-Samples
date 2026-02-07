@@ -159,7 +159,7 @@ namespace ModuleHost.Network.Cyclone.Modules
                 }
                 catch (Exception ex)
                 {
-                    FdpLog<CycloneNetworkModule>.Error($"Error creating DDS entities for {translator.GetType().Name}", ex);
+                    FdpLog<CycloneNetworkModule>.Error($"Error creating DDS entities for {translator.GetType().Name}. Exception: {ex}", ex);
                     return false;
                 }
             }

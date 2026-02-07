@@ -1,25 +1,28 @@
-# BATCH-04: Advanced Demo Modules & Polish
+# BATCH-04: Critical Fixes & Network Stabilization
 
 **Batch Number:** BATCH-04  
-**Tasks:** FDPLT-021, FDPLT-022, FDPLT-023  
-**Phase:** Advanced Features & Polish  
-**Estimated Effort:** 6-8 hours  
-**Priority:** MEDIUM  
-**Dependencies:** BATCH-03 (Fixes & Core Features)
+**Tasks:** CLEANUP-02, FIX-07, FDPLT-023 (Replay)  
+**Phase:** Stabilization  
+**Estimated Effort:** 4-6 hours  
+**Priority:** CRITICAL  
+**Dependencies:** BATCH-03 (Completed with Issues)
 
 ---
 
 ## 📋 Onboarding & Workflow
 
 ### Developer Instructions
-With the core distributed system stable and tested (BATCH-03), we now move to implementing the "Advanced Demo Features" defined in the original design. These modules showcase the engine's capabilities in handling async/background tasks and reactive event-driven logic.
+Batch 03 delivered working Time Sync logic but left the codebase in a messy state with blocking I/O and persistent network errors. The interactive demo shows "Remote: 0", meaning nodes are not discovering each other.
+
+**Your primary goal is to fix the broken network discovery and clean up the code.** Do not implement new "Advanced Features" (Radar/Damage) until the core network is stable.
 
 ### Required Reading
-1. **Design Document:** `docs/TANK-DESIGN.md` - Section 8 (Advanced Demo Features).
-2. **Task Details:** `docs/LOGGING-AND-TESTING-TASK-DETAILS.md` - (You will create new details for these tasks).
+1. **Previous Review:** `.dev-workstream/reviews/BATCH-03-REVIEW.md` - Read the specific issues found.
+2. **Logs:** See the user report showing `[ERROR] ... Error creating DDS entities for OwnershipUpdateTranslator`.
 
 ### Source Code Location
-- **Application:** `Fdp.Examples.NetworkDemo/Modules/` and `Systems/`
+- **Application:** `Fdp.Examples.NetworkDemo/`
+- **ModuleHost:** `ModuleHost.Network.Cyclone/`
 
 ### Report Submission
 **When done, submit your report to:**  
@@ -29,85 +32,110 @@ With the core distributed system stable and tested (BATCH-03), we now move to im
 
 ## 🔄 MANDATORY WORKFLOW
 
-1. **Task 1 (Feat):** Implement Radar Module (FDPLT-021) → Verify Async Logic ✅
-2. **Task 2 (Feat):** Implement Damage Control (FDPLT-022) → Verify Reactive Logic ✅
-3. **Task 3 (Feat):** Implement Distributed Replay (FDPLT-023) → Verify Replay Network Egress ✅
+**CRITICAL: Complete strictly in this order.**
+
+1. **Task 1 (Cleanup):** Remove Debug Hacks (CLEANUP-02) → Verify Clean Build ✅
+2. **Task 2 (Fix):** Fix Translator Registration (FIX-07) → Verify No Error Logs ✅
+3. **Task 3 (Verify):** Verify Network Discovery → **STOP if "Remote: 0" persists.** ✅
+4. **Task 4 (Feat):** Distributed Replay (FDPLT-023) → Verify Composite Replay ✅
+
+*Note: Radar and Damage Control modules are deferred until network is stable.*
 
 ---
 
 ## ✅ Tasks
 
-### Task 1: Radar Module (FDPLT-021)
+### Task 1: Remove Debug Hacks (CLEANUP-02)
 
-**File:** `Fdp.Examples.NetworkDemo/Modules/RadarModule.cs`
+**Files:**
+- `ModuleHost/FDP.Toolkit.Time/Controllers/DistributedTimeCoordinator.cs`
+- `ModuleHost/FDP.Toolkit.Time/Controllers/SlaveTimeModeListener.cs`
+- Entire Solution Search
 
 **Description:**
-Implement a module that runs in `SlowBackground` mode (1Hz). It should scan the `Snapshot` for entities within range and publish `RadarContactEvent`.
-
-**Requirements:**
-- Use `[ExecutionPolicy(ExecutionMode.SlowBackground, priority: 1)]`.
-- Use `[SnapshotPolicy(SnapshotMode.OnDemand)]`.
-- Query the *snapshot* (safe for background), not the live view.
-- Publish events to the EventBus.
+The previous developer left `System.IO.File.WriteAllText("debug_master.txt", ...)` and `Console.WriteLine` in the codebase.
+- **Requirement:** Remove ALL file I/O.
+- **Requirement:** Replace ALL `Console.WriteLine` in Toolkit/Modules with `FdpLog`.
 
 **Verification:**
-- Add a test `Modules/AdvancedModulesTests.cs`.
-- Run simulation for 2 seconds.
-- Assert `RadarContactEvent` was published.
+Search codebase for "debug_master.txt" and "Console.WriteLine". Should be zero (except in `Program.cs`).
 
 ---
 
-### Task 2: Damage Control Module (FDPLT-022)
+### Task 2: Fix Translator Registration (FIX-07)
 
-**File:** `Fdp.Examples.NetworkDemo/Modules/DamageControlModule.cs`
+**File:** `ModuleHost.Network.Cyclone/Modules/CycloneNetworkModule.cs`
 
 **Description:**
-Implement a reactive module that only wakes up when `DetonationEvent` occurs.
+Logs show: `[ERROR] ... Error creating DDS entities for OwnershipUpdateTranslator`.
+This error likely aborts the translator registration loop or puts the module in a bad state, preventing subsequent translators from working or discovery from completing.
 
-**Requirements:**
-- Use `[WatchEvents(typeof(DetonationEvent))]`.
-- Apply damage to the target entity's `Health` component.
-- Ensure it does *not* run every frame (add a log to verify execution count).
+**Investigation:**
+- The `OwnershipUpdateTranslator` was modified to add `DescriptorType`, but it might still be failing.
+- Check if `TopicMsgs.OwnershipUpdate` struct has the `[DdsTopic]` attribute.
+- Check if `CycloneNetworkModule` handles exceptions gracefully (it should log InnerException).
 
-**Verification:**
-- In `AdvancedModulesTests.cs`, publish a `DetonationEvent`.
-- Verify `Health` component decreases.
-- Verify module `Execute` was called exactly once.
+**Fix:**
+- Ensure `TopicMsgs.OwnershipUpdate` is a valid DDS topic.
+- Ensure `CycloneNetworkModule` prints the *full* exception details if it fails.
+- Fix the registration so the error disappears.
 
 ---
 
-### Task 3: Distributed Replay (FDPLT-023)
+### Task 3: Verify Network Discovery
+
+**Action:**
+Run two nodes interactively:
+```powershell
+# Terminal 1
+dotnet run --project Fdp.Examples.NetworkDemo -- 100 live
+# Terminal 2
+dotnet run --project Fdp.Examples.NetworkDemo -- 200 live
+```
+
+**Success Criteria:**
+- **No ERROR logs.**
+- **Output:** `[STATUS] Local: 2, Remote: 2` (or similar, assuming entities are replicated).
+- **Log:** `[CycloneIngress] Created ghost ...`
+
+**STOP CONDITION:**
+If you still see "Remote: 0" after 10 seconds, **DO NOT PROCEED to Task 4.** Debug the network discovery issue.
+
+---
+
+### Task 4: Distributed Replay (FDPLT-023)
 
 **Description:**
-Enable the "Composite Replay" scenario where each node replays its own recording while receiving the other's recording over the network.
+Once discovery works, enable the "Composite Replay" scenario.
 
 **Requirements:**
-- Ensure `ReplayBridgeSystem` correctly injects *only* owned components (using `NetworkAuthority`).
+- Verify `ReplayBridgeSystem` correctly injects *only* owned components.
 - Verify that injected components trigger `TransformSyncSystem` → `CycloneNetworkEgress`.
-- This proves "Replay is just another input source".
 
 **Verification:**
-- Manual Test: Record a session on Node A.
-- Restart Node A in Replay mode, Node B in Live mode.
-- Verify Node B sees Node A's tank moving (received via network from A's replay).
+1. Record a session on Node A (Drive tank).
+2. Restart Node A in Replay mode, Node B in Live mode.
+3. Verify Node B sees Node A's tank moving (received via network from A's replay).
 
 ---
 
 ## ⚠️ Quality Standards
 
-**❗ PERFORMANCE EXPECTATIONS**
-- **Radar:** Must NOT block the main thread. Use `Thread.Sleep` in the background task to simulate load during testing, ensuring FPS stays high.
-- **Damage:** Must be zero-cost when no events are present.
+**❗ CODE HYGIENE**
+- No commented-out code.
+- No "FIXME" comments left behind.
+- No `Console.WriteLine` in library code.
 
 ---
 
 ## 📊 Report Requirements
 
 In your report:
-1. **Radar Performance:** Did the background task cause any frame spikes?
-2. **Replay Fidelity:** Did the distributed replay look identical to the live session?
+1. **Root Cause:** What exactly caused the `OwnershipUpdateTranslator` error?
+2. **Discovery Status:** Did you achieve "Remote: > 0"?
+3. **Replay Validation:** Did distributed replay work?
 
 ---
 
 ## 📚 Reference Materials
-- **Design:** `docs/TANK-DESIGN.md` Section 8.
+- **Design:** `docs/TANK-DESIGN.md`

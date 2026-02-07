@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using Fdp.Examples.NetworkDemo.Components;
 using Fdp.Kernel;
@@ -6,6 +7,7 @@ using Fdp.Kernel.FlightRecorder;
 using FDP.Toolkit.Replication.Components;
 using ModuleHost.Core.Abstractions;
 using Fdp.Examples.NetworkDemo.Configuration;
+using FDP.Kernel.Logging;
 
 namespace Fdp.Examples.NetworkDemo.Systems
 {
@@ -33,6 +35,15 @@ namespace Fdp.Examples.NetworkDemo.Systems
         {
             _shadowRepo = new EntityRepository();
             DemoComponentRegistry.Register(_shadowRepo);
+            
+            // Replicate registration order from NetworkDemoApp to align Component IDs
+            // Note: Singletons consume IDs even if not recorded in chunks
+            _shadowRepo.RegisterManagedComponent<Fdp.Interfaces.ITkbDatabase>();
+            _shadowRepo.RegisterManagedComponent<Fdp.Interfaces.ISerializationRegistry>();
+            
+            // Register components missing from DemoComponentRegistry but present in App
+            _shadowRepo.RegisterComponent<Fdp.Examples.NetworkDemo.Components.TimeModeComponent>();
+            _shadowRepo.RegisterComponent<Fdp.Examples.NetworkDemo.Components.FrameAckComponent>();
 
             try
             {
@@ -51,9 +62,15 @@ namespace Fdp.Examples.NetworkDemo.Systems
             EntityRepository liveRepo = view as EntityRepository;
 
             // 1. Advance Recording (Loop if EOF)
-            if (!_reader.ReadNextFrame(_shadowRepo))
+            bool hasFrame = _reader.ReadNextFrame(_shadowRepo);
+            
+            var shadowCount = _shadowRepo.Query().Build().Count();
+            FdpLog<ReplayBridgeSystem>.Info($"ReadFrame: {hasFrame}, ShadowEntities: {shadowCount}, GlobalVersion: {_shadowRepo.GlobalVersion}");
+
+            if (!hasFrame)
             {
-                DisposeReader();
+                 FdpLog<ReplayBridgeSystem>.Info("Looping Replay...");
+                 DisposeReader();
                 InitializeShadowWorld();
                 if (_reader != null)
                 {
@@ -95,7 +112,11 @@ namespace Fdp.Examples.NetworkDemo.Systems
                 var netId = _shadowRepo.GetComponent<NetworkIdentity>(shadowEntity);
 
                 // Check Root Authority (Key 0)
-                if (!HasAuthority(shadowEntity, 0)) continue;
+                if (!HasAuthority(shadowEntity, 0)) 
+                {
+                    // FdpLog<ReplayBridgeSystem>.Info($"Skipping NetID {netId.Value} due to No Authority");
+                    continue;
+                }
 
                 Entity liveEntity;
 
@@ -105,6 +126,7 @@ namespace Fdp.Examples.NetworkDemo.Systems
                 }
                 else
                 {
+                    // FdpLog<ReplayBridgeSystem>.Info($"Creating Proxy for NetID {netId.Value}");
                     // New entity
                     liveEntity = ecb.CreateEntity();
                     ecb.AddComponent(liveEntity, netId);

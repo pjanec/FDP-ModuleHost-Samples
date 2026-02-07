@@ -118,11 +118,12 @@ namespace Fdp.Examples.NetworkDemo
             participant = new DdsParticipant(domainId: 0);
             // Force simple ID mapping for Demo/Test to ensure uniqueness in shared process
             nodeMapper = new NodeIdMapper(localDomain: 0, localInstance: instanceId);
-            localInternalId = instanceId / 100; // 100->1, 200->2
+            // Use Mapper to get consistent internal IDs (Local matches 1, Peers get 2, 3...)
+            localInternalId = nodeMapper.GetOrRegisterInternalId(new ModuleHost.Network.Cyclone.Topics.NetworkAppId { AppDomainId = 0, AppInstanceId = instanceId });
             var idAllocator = new DdsIdAllocator(participant, $"Node_{instanceId}");
             
             var peerInstances = new int[] { 100, 200 }.Where(x => x != instanceId).ToArray();
-            var peerInternalIds = peerInstances.Select(p => p / 100).ToArray();
+            var peerInternalIds = peerInstances.Select(p => nodeMapper.GetOrRegisterInternalId(new ModuleHost.Network.Cyclone.Topics.NetworkAppId { AppDomainId = 0, AppInstanceId = p })).ToArray();
             var topology = new StaticNetworkTopology(localNodeId: localInternalId, peerInternalIds);
 
             // --- 2. TKB & Serialization ---
@@ -187,14 +188,17 @@ namespace Fdp.Examples.NetworkDemo
             
             recorder = null;
 
+            // Ensure these are registered for Replay too!
+            World.RegisterComponent<Fdp.Examples.NetworkDemo.Components.TimeModeComponent>();
+            World.RegisterComponent<Fdp.Examples.NetworkDemo.Components.FrameAckComponent>();
+
             if (!isReplay)
             {
                 // === LIVE MODE ===
                 
                 // Reserve System IDs
                 World.ReserveIdRange(FdpConfig.SYSTEM_ID_RANGE);
-                World.RegisterComponent<Fdp.Examples.NetworkDemo.Components.TimeModeComponent>();
-                World.RegisterComponent<Fdp.Examples.NetworkDemo.Components.FrameAckComponent>();
+                
                 FdpLog<NetworkDemoApp>.Info($"[Init] Reserved ID range 0-{FdpConfig.SYSTEM_ID_RANGE}");
                 
                 // Register Systems
@@ -266,7 +270,10 @@ namespace Fdp.Examples.NetworkDemo
                 World.ReserveIdRange((int)meta.MaxEntityId);
                 
                 // Replay Bridge
-                replaySystem = new ReplayBridgeSystem(recordingPath, localInternalId);
+                // HACK: Replay files for this demo use fixed IDs (100->1, 200->2)
+                // We need to match the recorded authority ID, not the dynamically assigned localInternalId (which is always 1)
+                int replayAuthId = (instanceId == 200) ? 2 : 1; 
+                replaySystem = new ReplayBridgeSystem(recordingPath, replayAuthId);
                 Kernel.RegisterGlobalSystem(replaySystem);
                 
                 // Keep Network Receive Active

@@ -110,12 +110,14 @@ namespace ModuleHost.Network.Cyclone.Translators
                         var auth = view.GetComponentRO<NetworkAuthority>(existingEntity);
                         if (auth.PrimaryOwnerId != ownerNodeId)
                         {
-                             cmd.SetComponent(existingEntity, new NetworkAuthority(ownerNodeId, auth.LocalNodeId));
+                             // Update PrimaryOwner. Logical Owner (OwnerId) usually follows Primary for pure proxies, 
+                             // but we should probably update both to match the new owner.
+                             cmd.SetComponent(existingEntity, new NetworkAuthority(ownerNodeId, ownerNodeId));
                         }
                     }
                     else
                     {
-                         cmd.AddComponent(existingEntity, new NetworkAuthority(ownerNodeId, _nodeMapper.LocalNodeId));
+                         cmd.AddComponent(existingEntity, new NetworkAuthority(ownerNodeId, ownerNodeId));
                     }
                 }
                 else
@@ -144,7 +146,7 @@ namespace ModuleHost.Network.Cyclone.Translators
                         LocalNodeId = _nodeMapper.LocalNodeId 
                     });
 
-                    cmd.AddComponent(newEntity, new NetworkAuthority(ownerNodeId, _nodeMapper.LocalNodeId));
+                    cmd.AddComponent(newEntity, new NetworkAuthority(ownerNodeId, ownerNodeId));
 
                     _entityMap.Register(topic.EntityId, newEntity);
                     FdpLog<EntityMasterTranslator>.Info($"Created Proxy Entity {newEntity} for NetID {topic.EntityId}");
