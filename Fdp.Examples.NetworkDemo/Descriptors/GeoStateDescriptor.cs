@@ -3,7 +3,7 @@ using CycloneDDS.Schema;
 namespace Fdp.Examples.NetworkDemo.Descriptors
 {
     [DdsTopic("Tank_GeoState")]
-    public struct GeoStateDescriptor
+    public partial struct GeoStateDescriptor
     {
         [DdsKey]
         public long EntityId;

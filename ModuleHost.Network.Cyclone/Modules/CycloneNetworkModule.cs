@@ -199,6 +199,11 @@ namespace ModuleHost.Network.Cyclone.Modules
                 allTranslators.ToArray(),
                 allWriters.ToArray()
             ));
+
+            // Register Cleanup System (Lifecycle)
+            registry.RegisterSystem(new CycloneNetworkCleanupSystem(
+               new CycloneDataWriter<EntityMasterTopic>(_masterWriter, "EntityMaster")
+            ));
             
             // Register Gateway
             // Assuming Gateway is a System. If not, and it needs manual Tick, we might need to restore Tick() or wrap it.
@@ -232,9 +237,16 @@ namespace ModuleHost.Network.Cyclone.Modules
         {
             // Migrated to Toolkit Replication. Legacy loop disabled.
             // Enabling for Demo since Toolkit Replication Ingress is not yet fully wired in this sample.
-            for(int i=0; i<_translators.Length; i++)
+            if (view is EntityRepository repo)
             {
-                 _translators[i].PollIngress(_readers[i], view.GetCommandBuffer(), view);
+                using (var cmd = new EntityCommandBuffer())
+                {
+                    for(int i=0; i<_translators.Length; i++)
+                    {
+                         _translators[i].PollIngress(_readers[i], cmd, view);
+                    }
+                    cmd.Playback(repo);
+                }
             }
         }
     }

@@ -9,6 +9,7 @@ using FDP.Toolkit.Replication.Components;
 using ModuleHost.Network.Cyclone.Services;
 using FDP.Toolkit.Replication.Services;
 using ModuleHost.Network.Cyclone.Topics;
+using FDP.Kernel.Logging;
 
 using NetworkEntityMap = FDP.Toolkit.Replication.Services.NetworkEntityMap;
 using IDescriptorTranslator = Fdp.Interfaces.IDescriptorTranslator;
@@ -40,8 +41,40 @@ namespace ModuleHost.Network.Cyclone.Translators
         {
             foreach (var sample in reader.TakeSamples())
             {
-                if (sample.InstanceState != Fdp.Interfaces.NetworkInstanceState.Alive) continue;
+                if (sample.InstanceState != Fdp.Interfaces.NetworkInstanceState.Alive)
+                {
+                    if (sample.Data is EntityMasterTopic disposalTopic)
+                    {
+                         FdpLog<EntityMasterTranslator>.Info($"Processing NotAlive for EntityId {disposalTopic.EntityId} (Mapped: {_entityMap.TryGetEntity(disposalTopic.EntityId, out _)})");
+                        if (_entityMap.TryGetEntity(disposalTopic.EntityId, out var entityToDestroy))
+                        {
+                            cmd.DestroyEntity(entityToDestroy);
+                            _entityMap.Unregister(disposalTopic.EntityId, 0);
+                        }
+                    }
+                    else 
+                    {
+                         FdpLog<EntityMasterTranslator>.Warn($"Received NotAlive but Data is {sample.Data?.GetType().Name ?? "null"}");
+                    }
+                    continue;
+                }
+
                 if (sample.Data is not EntityMasterTopic topic) continue;
+
+                if (topic.Flags == 0xDEAD)
+                {
+                    if (_entityMap.TryGetEntity(topic.EntityId, out var entityToDestroy))
+                    {
+                        FdpLog<EntityMasterTranslator>.Info($"Received Death Note for {topic.EntityId}. Mapped to {entityToDestroy}. Destroying...");
+                        cmd.DestroyEntity(entityToDestroy);
+                        _entityMap.Unregister(topic.EntityId, 0);
+                    }
+                    else
+                    {
+                         FdpLog<EntityMasterTranslator>.Warn($"Received Death Note for {topic.EntityId} but it was not found in EntityMap.");
+                    }
+                    continue;
+                }
 
                 // Map Owner
                 int ownerNodeId = _nodeMapper.GetOrRegisterInternalId(topic.OwnerId);
@@ -71,11 +104,31 @@ namespace ModuleHost.Network.Cyclone.Translators
                             cmd.SetComponent(existingEntity, newOwnership);
                         }
                     }
+
+                    if (view.HasComponent<NetworkAuthority>(existingEntity))
+                    {
+                        var auth = view.GetComponentRO<NetworkAuthority>(existingEntity);
+                        if (auth.PrimaryOwnerId != ownerNodeId)
+                        {
+                             cmd.SetComponent(existingEntity, new NetworkAuthority(ownerNodeId, auth.LocalNodeId));
+                        }
+                    }
+                    else
+                    {
+                         cmd.AddComponent(existingEntity, new NetworkAuthority(ownerNodeId, _nodeMapper.LocalNodeId));
+                    }
                 }
                 else
                 {
                     // Create new PROXY entity
-                    var newEntity = cmd.CreateEntity();
+                    var repo = view as EntityRepository;
+                    if (repo == null) 
+                    {
+                         FdpLog<EntityMasterTranslator>.Error("Cannot create proxy: View is not EntityRepository");
+                         continue;
+                    }
+
+                    var newEntity = repo.CreateEntity();
                     
                     cmd.AddComponent(newEntity, new NetworkIdentity { Value = topic.EntityId });
                     
@@ -91,7 +144,10 @@ namespace ModuleHost.Network.Cyclone.Translators
                         LocalNodeId = _nodeMapper.LocalNodeId 
                     });
 
+                    cmd.AddComponent(newEntity, new NetworkAuthority(ownerNodeId, _nodeMapper.LocalNodeId));
+
                     _entityMap.Register(topic.EntityId, newEntity);
+                    FdpLog<EntityMasterTranslator>.Info($"Created Proxy Entity {newEntity} for NetID {topic.EntityId}");
                 }
             }
         }

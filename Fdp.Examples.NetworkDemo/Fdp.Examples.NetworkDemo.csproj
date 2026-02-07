@@ -20,6 +20,9 @@
     <ProjectReference Include="..\ModuleHost\FDP.Toolkit.Tkb\FDP.Toolkit.Tkb.csproj" />
     <ProjectReference Include="..\ModuleHost\FDP.Toolkit.Time\FDP.Toolkit.Time.csproj" />
     <ProjectReference Include="..\Fdp.Modules.Geographic\Fdp.Modules.Geographic.csproj" />
+    <ProjectReference Include="..\FastCycloneDdsCsharpBindings\src\CycloneDDS.Runtime\CycloneDDS.Runtime.csproj" />
+    <ProjectReference Include="..\FastCycloneDdsCsharpBindings\src\CycloneDDS.Schema\CycloneDDS.Schema.csproj" />
   </ItemGroup>
+  <Import Project="..\FastCycloneDdsCsharpBindings\tools\CycloneDDS.CodeGen\CycloneDDS.targets" />
 
 </Project>

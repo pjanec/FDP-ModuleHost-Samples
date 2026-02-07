@@ -1,15 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 using FDP.Interfaces.Abstractions;
+using CycloneDDS.Schema;
 
 namespace Fdp.Examples.NetworkDemo.Components
 {
     [FdpDescriptor(20, "TurretState")]
-    public struct TurretState
+    [DdsTopic("TurretState")]
+    public partial struct TurretState
     {
-        [Key]
-        public uint EntityId { get; set; }
-        public float Yaw { get; set; }
-        public float Pitch { get; set; }
-        public byte AmmoCount { get; set; }
+        [DdsKey]
+        public long EntityId;
+        public float Yaw;
+        public float Pitch;
+        public byte AmmoCount;
     }
 }

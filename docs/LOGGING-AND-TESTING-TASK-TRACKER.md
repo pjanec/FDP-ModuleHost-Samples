@@ -13,11 +13,11 @@
 - [x] **FDPLT-001** Add NLog Dependencies [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-001-add-nlog-dependencies)
 - [x] **FDPLT-002** Implement FdpLog Facade [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-002-implement-fdplog-facade)
 - [x] **FDPLT-003** Implement LogSetup Configuration [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-003-implement-logsetup-configuration)
-- [.] **FDPLT-004** Add Scope Context to NetworkDemoApp [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-004-add-scope-context-to-networkdemoapp) *BATCH-01*
-- [.] **FDPLT-005** Replace Console.WriteLine in CycloneNetworkModule [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-005-replace-consolewriteline-in-cyclonenetworkmodule) *BATCH-01*
-- [.] **FDPLT-006** Replace Console.WriteLine in GenericDescriptorTranslator [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-006-replace-consolewriteline-in-genericdescriptortranslator) *BATCH-01*
-- [.] **FDPLT-007** Replace Console.WriteLine in Network Systems [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-007-replace-consolewriteline-in-network-systems) *BATCH-01*
-- [.] **FDPLT-008** Refactor NetworkDemoApp for Testability [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-008-refactor-networkdemoapp-for-testability) *BATCH-01*
+- [x] **FDPLT-004** Add Scope Context to NetworkDemoApp [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-004-add-scope-context-to-networkdemoapp)
+- [x] **FDPLT-005** Replace Console.WriteLine in CycloneNetworkModule [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-005-replace-consolewriteline-in-cyclonenetworkmodule)
+- [x] **FDPLT-006** Replace Console.WriteLine in GenericDescriptorTranslator [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-006-replace-consolewriteline-in-genericdescriptortranslator)
+- [x] **FDPLT-007** Replace Console.WriteLine in Network Systems [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-007-replace-consolewriteline-in-network-systems)
+- [x] **FDPLT-008** Refactor NetworkDemoApp for Testability [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-008-refactor-networkdemoapp-for-testability)
 
 ---
 
@@ -25,9 +25,9 @@
 
 **Goal:** Build distributed testing framework capable of running multiple nodes concurrently with isolated logging and state verification.
 
-- [.] **FDPLT-009** Create Test Project [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-009-create-test-project) *BATCH-01*
-- [.] **FDPLT-010** Implement TestLogCapture [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-010-implement-testlogcapture) *BATCH-01*
-- [.] **FDPLT-011** Implement DistributedTestEnv [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-011-implement-distributedtestenv) *BATCH-01*
+- [x] **FDPLT-009** Create Test Project [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-009-create-test-project)
+- [x] **FDPLT-010** Implement TestLogCapture [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-010-implement-testlogcapture)
+- [x] **FDPLT-011** Implement DistributedTestEnv [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-011-implement-distributedtestenv)
 
 ---
 
@@ -35,12 +35,12 @@
 
 **Goal:** Verify all distributed features work correctly through comprehensive E2E testing.
 
-- [.] **FDPLT-012** Test - AsyncLocal Scope Verification [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-012-test---asynclocal-scope-verification) *BATCH-01*
-- [ ] **FDPLT-013** Test - Basic Entity Replication [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-013-test---basic-entity-replication)
-- [ ] **FDPLT-014** Test - Entity Lifecycle [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-014-test---entity-lifecycle)
-- [ ] **FDPLT-015** Test - Orphan Protection [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-015-test---orphan-protection)
-- [ ] **FDPLT-016** Test - Partial Ownership [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-016-test---partial-ownership)
-- [ ] **FDPLT-017** Additional Test Cases [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-017-additional-test-cases)
+- [x] **FDPLT-012** Test - AsyncLocal Scope Verification [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-012-test---asynclocal-scope-verification)
+- [x] **FDPLT-013** Test - Basic Entity Replication [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-013-test---basic-entity-replication)
+- [x] **FDPLT-014** Test - Entity Lifecycle [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-014-test---entity-lifecycle)
+- [x] **FDPLT-015** Test - Orphan Protection [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-015-test---orphan-protection)
+- [x] **FDPLT-016** Test - Partial Ownership [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-016-test---partial-ownership)
+- [⚠️] **FDPLT-017** Additional Test Cases [details](./LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-017-additional-test-cases) *Partially Complete*
   - Dynamic Ownership Transfer
   - Sub-Entity Hierarchy Cleanup
   - Component Synchronization

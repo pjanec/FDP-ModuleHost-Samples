@@ -114,6 +114,27 @@ namespace Fdp.Examples.NetworkDemo.Tests.Infrastructure
             throw new TimeoutException("Condition not met in time");
         }
 
+        public async Task WaitForCondition(Func<NetworkDemoApp, bool> predicate, NetworkDemoApp target, int timeoutMs = 5000)
+        {
+            var start = DateTime.UtcNow;
+            while ((DateTime.UtcNow - start).TotalMilliseconds < timeoutMs)
+            {
+                if (predicate(target)) return;
+                await Task.Delay(50);
+            }
+            
+            _output.WriteLine("=== TIMEOUT LOGS START ===");
+            foreach(var l in _logCapture.Logs) _output.WriteLine(l);
+            _output.WriteLine("=== TIMEOUT LOGS END ===");
+            
+            throw new TimeoutException("Condition not met in time");
+        }
+
+        public async Task RunFrames(int frames)
+        {
+            await Task.Delay(frames * 33);
+        }
+
         public void Dispose()
         {
             _cts.Cancel();

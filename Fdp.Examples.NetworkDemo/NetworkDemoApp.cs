@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Numerics;
@@ -67,6 +68,11 @@ namespace Fdp.Examples.NetworkDemo
     {
         public EntityRepository World { get; private set; }
         public ModuleHostKernel Kernel { get; private set; }
+
+        public int InstanceId => instanceId;
+        public int LocalNodeId => localInternalId;
+        public Fdp.Interfaces.ITkbDatabase Tkb => tkb;
+        public FDP.Toolkit.Replication.Services.NetworkEntityMap EntityMap { get; private set; }
         
         private DdsParticipant participant;
         private AsyncRecorder recorder;
@@ -77,6 +83,9 @@ namespace Fdp.Examples.NetworkDemo
         private int localInternalId;
         private NodeIdMapper nodeMapper;
         private TkbDatabase tkb;
+        
+        private readonly ConcurrentQueue<Action<EntityRepository>> _actionQueue = new();
+        public void EnqueueAction(Action<EntityRepository> action) => _actionQueue.Enqueue(action);
 
         public async Task InitializeAsync(int nodeId, bool replayMode, string recPath = null)
         {
@@ -89,10 +98,9 @@ namespace Fdp.Examples.NetworkDemo
             
             string nodeName = instanceId == 100 ? "Alpha" : "Bravo";
             
-            Console.WriteLine("==========================================");
-            Console.WriteLine($"  Network Demo - {nodeName} (ID: {instanceId}) [{ (isReplay ? "REPLAY" : "LIVE") }]");
-            Console.WriteLine("==========================================");
-            Console.WriteLine();
+            FdpLog<NetworkDemoApp>.Info("==========================================");
+            FdpLog<NetworkDemoApp>.Info($"  Network Demo - {nodeName} (ID: {instanceId}) [{ (isReplay ? "REPLAY" : "LIVE") }]");
+            FdpLog<NetworkDemoApp>.Info("==========================================");
             
             // Common Setup
             World = new EntityRepository();
@@ -110,7 +118,9 @@ namespace Fdp.Examples.NetworkDemo
             var idAllocator = new DdsIdAllocator(participant, $"Node_{instanceId}");
             
             var peerInstances = new int[] { 100, 200 }.Where(x => x != instanceId).ToArray();
-            var peerInternalIds = peerInstances.Select(GetInternalId).ToArray();
+            // CORRECT FIX: Use the actual nodeMapper to generating readings for peers.
+            // This ensures they get unique IDs (statring from 2) and are registered in the mapper.
+            var peerInternalIds = peerInstances.Select(p => nodeMapper.GetOrRegisterInternalId(new ModuleHost.Network.Cyclone.Topics.NetworkAppId { AppDomainId = 0, AppInstanceId = p })).ToArray();
             var topology = new StaticNetworkTopology(localNodeId: localInternalId, peerInternalIds);
 
             // --- 2. TKB & Serialization ---
@@ -138,11 +148,15 @@ namespace Fdp.Examples.NetworkDemo
             wgs84.SetOrigin(52.52, 13.405, 0);
 
             // Create Shared NetworkEntityMap and Translators
-            var entityMap = new FDP.Toolkit.Replication.Services.NetworkEntityMap();
+            EntityMap = new FDP.Toolkit.Replication.Services.NetworkEntityMap();
+            var entityMap = EntityMap;
             var allTranslators = new List<Fdp.Interfaces.IDescriptorTranslator>();
             
             // 1. Geodetic (Manual)
             allTranslators.Add(new Fdp.Examples.NetworkDemo.Translators.GeodeticTranslator(wgs84, entityMap));
+            
+            // 1.1 OwnershipUpdate (Manual)
+            allTranslators.Add(new Fdp.Examples.NetworkDemo.Translators.OwnershipUpdateTranslator(nodeMapper));
             
             // 2. Auto-generated (Reflection)
             allTranslators.AddRange(ReplicationBootstrap.CreateAutoTranslators(
@@ -171,7 +185,7 @@ namespace Fdp.Examples.NetworkDemo
                 
                 // Reserve System IDs
                 World.ReserveIdRange(FdpConfig.SYSTEM_ID_RANGE);
-                Console.WriteLine($"[Init] Reserved ID range 0-{FdpConfig.SYSTEM_ID_RANGE}");
+                FdpLog<NetworkDemoApp>.Info($"[Init] Reserved ID range 0-{FdpConfig.SYSTEM_ID_RANGE}");
                 
                 // Register Systems
                 IInputSource inputSource;
@@ -214,11 +228,11 @@ namespace Fdp.Examples.NetworkDemo
                 try 
                 {
                    meta = MetadataManager.Load(metaPath);
-                   Console.WriteLine($"[Replay] Loaded metadata (MaxID: {meta.MaxEntityId})");
+                   FdpLog<NetworkDemoApp>.Info($"[Replay] Loaded metadata (MaxID: {meta.MaxEntityId})");
                 } 
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Replay] Metadata load failed ({ex.Message}). Using default range.");
+                    FdpLog<NetworkDemoApp>.Warn($"[Replay] Metadata load failed ({ex.Message}). Using default range.");
                     meta = new Fdp.Examples.NetworkDemo.Configuration.RecordingMetadata { MaxEntityId = 1_000_000 };
                 }
 
@@ -236,24 +250,24 @@ namespace Fdp.Examples.NetworkDemo
                 var dummyTime = new GlobalTime { TimeScale = 0 };
                 Kernel.SetTimeController(new SteppingTimeController(dummyTime));
                 
-                Console.WriteLine("[Mode] REPLAY - Playback active (Physics Disabled)");
+                FdpLog<NetworkDemoApp>.Info("[Mode] REPLAY - Playback active (Physics Disabled)");
             }
 
             // --- 5. Initialization ---
 
             Kernel.Initialize();
             
-            Console.WriteLine("[INIT] Kernel initialized");
-            Console.WriteLine("[INIT] Waiting for peer discovery...");
+            FdpLog<NetworkDemoApp>.Info("[INIT] Kernel initialized");
+            FdpLog<NetworkDemoApp>.Info("[INIT] Waiting for peer discovery...");
             
             // Simple delay for discovery
             await Task.Delay(2000); // Allow DDS to settle
             
             if (!isReplay)
             {
-                 // Spawn entities only in Live mode
-                 SpawnLocalEntities(World, tkb, instanceId, localInternalId);
-                 Console.WriteLine($"[SPAWN] Created local entities");
+                 // Disable Auto-Spawn for Tests/cleaner control
+                 // SpawnLocalEntities(World, tkb, instanceId, localInternalId);
+                 FdpLog<NetworkDemoApp>.Info($"[SPAWN] Auto-spawn disabled for testing/demo control");
             }
             } // End ScopeContext
         }
@@ -275,6 +289,21 @@ namespace Fdp.Examples.NetworkDemo
 
         public void Update(float dt)
         {
+            // Process queued actions on the simulation thread
+            while (_actionQueue.TryDequeue(out var action))
+            {
+                try 
+                {
+                    FdpLog<NetworkDemoApp>.Info("Executing queued action...");
+                    action(World);
+                    FdpLog<NetworkDemoApp>.Info("Queued action executed.");
+                }
+                catch (Exception ex)
+                {
+                    FdpLog<NetworkDemoApp>.Error($"Error executing queued action: {ex}");
+                }
+            }
+
             if (isReplay)
             {
                 World.Tick(); // CRITICAL: Advance global version in Replay
@@ -300,17 +329,17 @@ namespace Fdp.Examples.NetworkDemo
                 try
                 {
                     MetadataManager.Save(recordingPath + ".meta", meta);
-                    Console.WriteLine($"[Recorder] Saved metadata to {recordingPath}.meta");
+                    FdpLog<NetworkDemoApp>.Info($"[Recorder] Saved metadata to {recordingPath}.meta");
                 } 
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Recorder] Failed to save metadata: {ex.Message}");
+                    FdpLog<NetworkDemoApp>.Error($"[Recorder] Failed to save metadata: {ex.Message}");
                 }
             }
             
             participant?.Dispose();
             replaySystem?.Dispose();
-            Console.WriteLine("[SHUTDOWN] Done.");
+            FdpLog<NetworkDemoApp>.Info("[SHUTDOWN] Done.");
         }
         
         public void PrintStatus()
@@ -382,7 +411,7 @@ namespace Fdp.Examples.NetworkDemo
                 .With<FDP.Toolkit.Replication.Components.NetworkAuthority>() // Use Authority
                 .Build();
 
-            Console.WriteLine($"[STATUS] Frame snapshot:");
+            FdpLog<NetworkDemoApp>.Info($"[STATUS] Frame snapshot:");
             
             int localCount = 0;
             int remoteCount = 0;
@@ -411,13 +440,13 @@ namespace Fdp.Examples.NetworkDemo
                  
                  if (isLocal) localCount++; else remoteCount++;
 
-                 Console.WriteLine($"  [{ownerStr}] {typeName,-12} " +
+                 FdpLog<NetworkDemoApp>.Info($"  [{ownerStr}] {typeName,-12} " +
                                 $"Pos: ({pos.X:F1}, {pos.Y:F1}, {pos.Z:F1}) " +
                                 $"NetID: {netId.Value} " +
                                 $"{ownershipInfo}");
             }
             
-            Console.WriteLine($"[STATUS] Local: {localCount}, Remote: {remoteCount}");
+            FdpLog<NetworkDemoApp>.Info($"[STATUS] Local: {localCount}, Remote: {remoteCount}");
         }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using CycloneDDS.Runtime;
 using Fdp.Interfaces; // For IDataReader, IDataWriter
+using FDP.Kernel.Logging;
 using CoreInstanceState = Fdp.Interfaces.NetworkInstanceState;
 using CycloneDdsInstanceState = CycloneDDS.Runtime.DdsInstanceState;
 
@@ -11,6 +12,18 @@ namespace ModuleHost.Network.Cyclone.Services
     {
         private readonly DdsReader<T> _reader;
         private readonly string _topicName;
+        private static System.Reflection.MemberInfo _entityIdMember;
+
+        static CycloneDataReader()
+        {
+
+			// FIXME!!!
+			// reflection is unacceptable!!!!
+
+
+            _entityIdMember = (System.Reflection.MemberInfo)typeof(T).GetProperty("EntityId") 
+                              ?? typeof(T).GetField("EntityId");
+        }
 
         public CycloneDataReader(DdsReader<T> reader, string topicName)
         {
@@ -43,12 +56,23 @@ namespace ModuleHost.Network.Cyclone.Services
                     case CycloneDdsInstanceState.NotAliveNoWriters: state = CoreInstanceState.NotAliveNoWriters; break;
                 }
 
+                long entityId = 0;
+                if (_entityIdMember != null)
+                {
+                     object val = null;
+                     object boxed = data;
+                     if (_entityIdMember is System.Reflection.PropertyInfo pi) val = pi.GetValue(boxed);
+                     else if (_entityIdMember is System.Reflection.FieldInfo fi) val = fi.GetValue(boxed);
+                     
+                     if (val != null) entityId = Convert.ToInt64(val);
+                }
+
                 list.Add(new SampleData
                 {
                     Data = data,
                     InstanceState = state,
                     InstanceId = info.InstanceHandle,
-                    EntityId = 0
+                    EntityId = entityId
                 });
             }
             return list;
@@ -112,7 +136,7 @@ namespace ModuleHost.Network.Cyclone.Services
             catch (Exception ex)
             {
                 // Log but don't crash
-                 Console.WriteLine($"[CycloneDataWriter] Error disposing entity {networkEntityId}: {ex.Message}");
+                 FdpLog<CycloneDataWriter<T>>.Error($"[CycloneDataWriter] Error disposing entity {networkEntityId}: {ex.Message}");
             }
         } 
     }

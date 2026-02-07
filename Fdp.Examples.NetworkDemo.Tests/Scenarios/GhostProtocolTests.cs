@@ -1,0 +1,93 @@
+using System.Threading.Tasks;
+using Xunit;
+using Xunit.Abstractions;
+using Fdp.Examples.NetworkDemo.Tests.Infrastructure;
+using Fdp.Examples.NetworkDemo.Tests.Extensions;
+using Fdp.Kernel;
+using FDP.Toolkit.Replication.Components;
+using ModuleHost.Network.Cyclone.Components;
+using System.Linq;
+
+namespace Fdp.Examples.NetworkDemo.Tests.Scenarios
+{
+    public class GhostProtocolTests
+    {
+        private readonly ITestOutputHelper _output;
+
+        public GhostProtocolTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
+        [Fact]
+        public async Task Entity_Without_Mandatory_Data_Is_Inactive()
+        {
+            using var _env = new DistributedTestEnv(_output);
+            await _env.StartNodesAsync();
+            var appA = _env.NodeA;
+            var appB = _env.NodeB;
+
+            // 1. Create Partial Entity on A (Identity + Ownership + Spawn, but NO Position)
+            // This triggers EntityMaster (Creation) but NOT EntityState (Position)
+            // Use manual ID generation logic as in Extensions
+            long id = (long)appA.LocalNodeId * 5000 + 1;
+            
+            var partialEntity = appA.World.CreateEntity();
+            
+            appA.World.AddComponent(partialEntity, new FDP.Toolkit.Replication.Components.NetworkIdentity { Value = id });
+            appA.World.AddComponent(partialEntity, new FDP.Toolkit.Replication.Components.NetworkSpawnRequest { DisType = 1, OwnerId = (ulong)appA.LocalNodeId });
+            appA.World.AddComponent(partialEntity, new ModuleHost.Core.Network.NetworkOwnership { PrimaryOwnerId = appA.LocalNodeId, LocalNodeId = appA.LocalNodeId });
+            // FORCE PUBLISH triggers Egress
+            appA.World.AddComponent(partialEntity, new ModuleHost.Core.Network.ForceNetworkPublish());
+
+            _output.WriteLine($"Created Partial Entity {id} on Node A");
+
+            // 2. Wait for propagation
+            // Node B should receive EntityMaster and create the ghost
+            await _env.WaitForCondition(app => 
+            {
+                 var query = app.World.Query().With<NetworkIdentity>().Build();
+                 foreach(var e in query)
+                 {
+                     if (app.World.GetComponent<NetworkIdentity>(e).Value == id) return true;
+                 }
+                 return false;
+            }, 
+            appB, 5000);
+
+            var ghostB = Entity.Null;
+            foreach(var e in appB.World.Query().With<NetworkIdentity>().Build())
+            {
+                if (appB.World.GetComponent<NetworkIdentity>(e).Value == id)
+                {
+                    ghostB = e;
+                    break;
+                }
+            }
+            Assert.NotEqual(Entity.Null, ghostB);
+
+            _output.WriteLine($"Node B obtained ghost: {ghostB}");
+
+            // 3. Assert Ghost is Incomplete
+            // Should NOT have NetworkPosition
+            Assert.False(appB.World.HasComponent<NetworkPosition>(ghostB), "Ghost should not have Position yet");
+            
+            // 4. Assert Ghost is not logically 'Active' (if we had an Active tag)
+            // Since we don't use Active tags in this demo, missing position is the check.
+
+            // 5. Provide Data "Later" (Simulate data arrival)
+            // Now add Position to A
+            appA.World.AddComponent(partialEntity, new NetworkPosition { Value = new System.Numerics.Vector3(10, 20, 30) });
+            // FORCE PUBLISH AGAIN (since Egress scans for Position too, but we need to ensure it picks it up)
+            appA.World.AddComponent(partialEntity, new ModuleHost.Core.Network.ForceNetworkPublish()); // Removed unnecessary fully qualified namespace if imported, but ok.
+            
+            // Force verify update
+            // Wait for B to get Position
+            await _env.WaitForCondition(app => 
+                app.World.HasComponent<NetworkPosition>(ghostB), 
+                appB, 5000);
+            
+            Assert.True(appB.World.HasComponent<NetworkPosition>(ghostB), "Ghost should receive Position now");
+        }
+    }
+}
