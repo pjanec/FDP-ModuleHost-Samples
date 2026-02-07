@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using CycloneDDS.Runtime;
 using Fdp.Kernel;
+using FDP.Kernel.Logging;
 using Fdp.Interfaces; // Use Fdp Interface
 using ModuleHost.Core.Abstractions;
 using ModuleHost.Core.Network;
@@ -101,14 +102,19 @@ namespace ModuleHost.Network.Cyclone.Modules
             
             if (customTranslators != null)
             {
-                _customTranslators.AddRange(customTranslators);
-                foreach (var t in _customTranslators) CreateDdsEntitiesForTranslator(t);
+                foreach (var t in customTranslators)
+                {
+                    if (CreateDdsEntitiesForTranslator(t))
+                    {
+                        _customTranslators.Add(t);
+                    }
+                }
             }
             
             _gatewayModule = new NetworkGatewayModule(101, _nodeMapper.LocalNodeId, _topology, _elm);
         }
 
-        private void CreateDdsEntitiesForTranslator(IDescriptorTranslator translator)
+        private bool CreateDdsEntitiesForTranslator(IDescriptorTranslator translator)
         {
             Type topicType = null;
             var type = translator.GetType();
@@ -132,11 +138,12 @@ namespace ModuleHost.Network.Cyclone.Modules
                 {
                     // Create DdsReader<T>
                     var readerType = typeof(DdsReader<>).MakeGenericType(topicType);
-                    var reader = Activator.CreateInstance(readerType, _participant, translator.TopicName);
+                    // Pass IntPtr.Zero for QoS to explicitly match the constructor when using Activator
+                    var reader = Activator.CreateInstance(readerType, _participant, translator.TopicName, IntPtr.Zero);
                     
                     // Create DdsWriter<T>
                     var writerType = typeof(DdsWriter<>).MakeGenericType(topicType);
-                    var writer = Activator.CreateInstance(writerType, _participant, translator.TopicName);
+                    var writer = Activator.CreateInstance(writerType, _participant, translator.TopicName, IntPtr.Zero);
                     
                     // Wrap in CycloneDataReader<T>
                     var wrapperReaderType = typeof(CycloneDataReader<>).MakeGenericType(topicType);
@@ -148,15 +155,18 @@ namespace ModuleHost.Network.Cyclone.Modules
                     
                     _dynamicReaders.Add(wrapperReader);
                     _dynamicWriters.Add(wrapperWriter);
+                    return true;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[CycloneNetworkModule] Error creating DDS entities for {translator.GetType().Name}: {ex.Message}");
+                    FdpLog<CycloneNetworkModule>.Error($"Error creating DDS entities for {translator.GetType().Name}", ex);
+                    return false;
                 }
             }
             else
             {
-                Console.WriteLine($"[CycloneNetworkModule] Warning: Could not determine topic type for translator {type.Name}. Skipping DDS entity creation.");
+                FdpLog<CycloneNetworkModule>.Warn($"Could not determine topic type for translator {type.Name}. Skipping DDS entity creation.");
+                return false;
             }
         }
 

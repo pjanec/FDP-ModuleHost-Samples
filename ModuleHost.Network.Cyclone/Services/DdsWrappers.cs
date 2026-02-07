@@ -77,8 +77,43 @@ namespace ModuleHost.Network.Cyclone.Services
         public void Dispose() { }
         public void Dispose(long networkEntityId) 
         { 
-            // Generic dispose by ID requires constructing a key sample.
-            // For now, skipping explicit disposal 
+            try 
+            {
+				// FIXME: we do not want to use reflection in a high performance path. We need to find other way
+				// to set they keys on the struct - and not just EntityId but also the other keys if they exist. (partId)
+
+				// Create default instance of T
+				T sample = Activator.CreateInstance<T>();
+                
+                // Find EntityId property. 
+                // We use reflection once. 
+                // Optimization: Cached property info in static field? 
+                // For now, simple reflection is acceptable as Dispose is not hot-path (Lifecycle event).
+                
+                var prop = typeof(T).GetProperty("EntityId");
+                if (prop != null)
+                {
+                    // Check type of property
+                    object val = networkEntityId;
+                    
+                    if (prop.PropertyType == typeof(ulong)) 
+                        val = (ulong)networkEntityId;
+                    else if (prop.PropertyType == typeof(int))
+                        val = (int)networkEntityId;
+
+                    // Set value on boxed struct
+                    object boxed = sample;
+                    prop.SetValue(boxed, val);
+                    sample = (T)boxed;
+                    
+                    _writer.DisposeInstance(sample);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log but don't crash
+                 Console.WriteLine($"[CycloneDataWriter] Error disposing entity {networkEntityId}: {ex.Message}");
+            }
         } 
     }
 }

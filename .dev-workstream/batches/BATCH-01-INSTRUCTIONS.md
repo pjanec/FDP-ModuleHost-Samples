@@ -1,30 +1,28 @@
-# BATCH-01: Kernel Foundation & Replication Toolkit
+# BATCH-01: Logging & Test Infrastructure Foundation
 
 **Batch Number:** BATCH-01  
-**Tasks:** FDP-DRP-001 through FDP-DRP-007  
-**Phase:** Phase 1 (Kernel) & Phase 2 (Replication)  
-**Estimated Effort:** 12-16 hours  
-**Priority:** CRITICAL  
-**Dependencies:** None
+**Tasks:** FDPLT-004, FDPLT-005, FDPLT-006, FDPLT-007, FDPLT-008, FDPLT-009, FDPLT-010, FDPLT-011, FDPLT-012  
+**Phase:** Logging & Testing Foundation  
+**Estimated Effort:** 8-10 hours  
+**Priority:** HIGH  
+**Dependencies:** None (Greenfield phase for testing)
 
 ---
 
 ## 📋 Onboarding & Workflow
 
 ### Developer Instructions
-This batch combines the **Kernel Foundation** (Phase 1) and **Replication Toolkit** (Phase 2). This provides a complete infrastructure layer: enabling safe replay ID management AND zero-boilerplate networking.
+This batch establishes the critical infrastructure for distributed testing and high-performance logging. You will complete the logging integration started in previous work and build the test harness that allows running multiple nodes in parallel.
 
 ### Required Reading (IN ORDER)
-1. **Project Onboarding:** [`ONBOARDING.md`](../../ONBOARDING.md) - **READ THIS FIRST** to understand the Shadow World concept and ID partitioning strategy.
-2. **Workflow Guide:** `.dev-workstream/README.md` - How to work with batches.
-3. **Task Definitions:** [`docs/TASK-DETAIL.md`](../../docs/TASK-DETAIL.md) - Detailed specs for tasks 001-007.
-4. **Design Document:** [`docs/DESIGN.md`](../../docs/DESIGN.md) - Section 3.1 (ID Management), 4.2 (Shadow World), and 7 (Zero Boilerplate).
+1. **Onboarding Guide:** [`ONBOARDING.md`](../../ONBOARDING.md) - Review the new sections on Logging and Testing.
+2. **Workflow Guide:** `.dev-workstream/guides/DEV-GUIDE.md` - Standard workflow.
+3. **Design Document:** `docs/LOGGING-AND-TESTING-DESIGN.md` - Understand the architecture (Architecture sections 2.1 and 2.2).
+4. **Task Details:** `docs/LOGGING-AND-TESTING-TASK-DETAILS.md` - Specific implementation steps.
 
 ### Source Code Location
-- **Kernel Core:** `ModuleHost/FDP/Fdp.Kernel/`
-- **Replication Toolkit:** `ModuleHost/FDP.Toolkit.Replication/`
-- **Interfaces:** `ModuleHost/FDP.Interfaces/`
-- **Tests:** `ModuleHost/FDP/Fdp.Tests/` and `ModuleHost/FDP.Toolkit.Replication.Tests/`
+- **Primary Work Area:** `Fdp.Examples.NetworkDemo/` and `ModuleHost/`
+- **New Test Project:** `Fdp.Examples.NetworkDemo.Tests/` (To be created)
 
 ### Report Submission
 **When done, submit your report to:**  
@@ -39,190 +37,168 @@ This batch combines the **Kernel Foundation** (Phase 1) and **Replication Toolki
 
 **CRITICAL: You MUST complete tasks in sequence with passing tests:**
 
-1. **Kernel Tasks (001-003):** Implement → Write tests → **ALL tests pass** ✅
-2. **Toolkit Foundation (004-005):** Implement → Write tests → **ALL tests pass** ✅
-3. **Generic Translator (006):** Implement → Write tests → **ALL tests pass** ✅
-4. **Auto-Registration (007):** Implement → Write tests → **ALL tests pass** ✅
+1. **Task 1 (Logging):** Implement Scope Context → Verify with manual run ✅
+2. **Task 2 (Refactor):** Refactor NetworkDemoApp → Verify interactive mode still works ✅
+3. **Task 3 (Test Infra):** Create Project & TestLogCapture → Unit Test Capture ✅
+4. **Task 4 (Orchestrator):** Implement DistributedTestEnv → Unit Test Environment ✅
+5. **Task 5 (Verification):** Implement Scope Verification Test (FDPLT-012) → Verify Node Isolation ✅
 
 **DO NOT** move to the next task until:
 - ✅ Current task implementation complete
-- ✅ Current task tests written
-- ✅ **ALL tests passing** (including previous tasks)
+- ✅ Current task tests written (where applicable)
+- ✅ **ALL tests passing**
+
+---
+
+## Context
+
+We are extending the FDP Engine with distributed recording and playback capabilities. To validate this complex behavior (multi-node synchronization, time modes, ownership transfer), we need a robust testing framework that can simulate a distributed environment in-memory.
+
+The logging foundation has been started (`FdpLog` and `LogSetup` exist), but is not fully integrated. The testing infrastructure does not exist yet.
+
+**Related Tasks:**
+- [FDPLT-004](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-004-add-scope-context-to-networkdemoapp) - Critical for identifying nodes in logs
+- [FDPLT-008](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-008-refactor-networkdemoapp-for-testability) - Critical for deterministic testing
+- [FDPLT-011](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-011-implement-distributedtestenv) - The test orchestrator
 
 ---
 
 ## 🎯 Batch Objectives
-1. **ID Partitioning:** Prevents collisions between "System" entities and "Recorded" entities.
-2. **Deterministic Hydration:** Allows the replay system to force-create entities with specific IDs.
-3. **Selective Recording:** Prevents local system entities and transient network buffers from polluting the recording.
-4. **Zero-Boilerplate Networking:** Enables networking for components just by adding attributes, using a generic translator.
+1. **Finalize Logging:** Ensure every log line identifies its source node via `AsyncLocal` scope.
+2. **Clean Code:** Remove all `Console.WriteLine` calls from library code.
+3. **Enable Testing:** Refactor the application entry point to allow headless, deterministic execution.
+4. **Build Framework:** Create the `DistributedTestEnv` that can run multiple nodes in parallel tests.
 
 ---
 
-## ✅ Part 1: Kernel Foundation
+## ✅ Tasks
 
-### Task 1: Entity Index ID Reservation (FDP-DRP-001)
+### Task 1: Add Scope Context to NetworkDemoApp (FDPLT-004)
 
-**Files:**
-- `ModuleHost/FDP/Fdp.Kernel/FdpConfig.cs` (UPDATE)
-- `ModuleHost/FDP/Fdp.Kernel/EntityIndex.cs` (UPDATE)
-- `ModuleHost/FDP/Fdp.Kernel/EntityRepository.cs` (UPDATE)
+**File:** `Fdp.Examples.NetworkDemo/NetworkDemoApp.cs`  
+**Task Definition:** See [FDPLT-004](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-004-add-scope-context-to-networkdemoapp)
 
 **Description:**
-Implement the ability to reserve a range of IDs at the start of the entity index.
+Wrap the application execution in a logging scope to attach the `NodeId` to all log messages. This is the "magic" that allows us to separate logs from different nodes running in the same process.
 
 **Requirements:**
-1. Define `public const int SYSTEM_ID_RANGE = 65536;` in `FdpConfig.cs`.
-2. Implement `ReserveIdRange(int maxId)` in `EntityIndex.cs` (thread-safe).
-3. Expose via `EntityRepository.ReserveIdRange`.
+- Wrap `Start()` logic in `using (ScopeContext.PushProperty("NodeId", nodeId))`
+- Ensure this scope remains active for the entire duration of the app's life.
+- Verify context flows across `await` calls.
 
-**Tests:**
-- ✅ `ReserveIdRange_PreventsCollision`
-- ✅ `ReserveIdRange_MultipleCalls`
+**Verification:**
+Run the demo with `--node 100`. The log file `logs/node_100.log` must exist and every line should have `|Node-100|`.
 
 ---
 
-### Task 2: Entity Hydration for Replay (FDP-DRP-002)
+### Task 2: Refactor NetworkDemoApp for Testability (FDPLT-008)
 
-**Files:**
-- `ModuleHost/FDP/Fdp.Kernel/EntityRepository.cs` (UPDATE)
+**File:** `Fdp.Examples.NetworkDemo/NetworkDemoApp.cs`  
+**Task Definition:** See [FDPLT-008](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-008-refactor-networkdemoapp-for-testability)
 
 **Description:**
-Implement `HydrateEntity(int id, int generation)` to force-create entities at specific slots during replay.
+The current `Start()` method blocks until the app exits. This makes testing impossible. You must split initialization from execution.
 
 **Requirements:**
-1. Verify ID is within reserved range OR extend reservation.
-2. Set entity generation to exactly match request.
-3. Mark entity as active and emit lifecycle event.
+- Rename `Start` → `InitializeAsync` (setup only, returns when ready).
+- Add `Update(float dt)` for single-frame manual stepping.
+- Add `RunLoopAsync(CancellationToken)` for the interactive game loop.
+- Update `Program.cs` to call these new methods.
 
-**Tests:**
-- ✅ `HydrateEntity_CreatesAtSpecificId`
-- ✅ `HydrateEntity_EmitsLifecycleEvent`
+**Design Reference:**
+See [Section 7.1 in Design Doc](../../docs/LOGGING-AND-TESTING-DESIGN.md#71-refactoring-networkdemoapp).
 
 ---
 
-### Task 3: Recorder Minimum ID Filter (FDP-DRP-003)
+### Task 3: Complete Console.WriteLine Replacements (FDPLT-005, 006, 007)
 
 **Files:**
-- `ModuleHost/FDP/Fdp.Kernel/FlightRecorder/RecorderSystem.cs` (UPDATE)
+- `ModuleHost.Network.Cyclone/CycloneNetworkModule.cs`
+- `FDP.Toolkit.Replication/Translators/GenericDescriptorTranslator.cs`
+- `ModuleHost.Network.Cyclone/Systems/CycloneNetworkEgressSystem.cs`
+- `ModuleHost.Network.Cyclone/Systems/CycloneNetworkIngressSystem.cs`
+
+**Task Definitions:** [FDPLT-005](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-005-replace-consolewriteline-in-cyclonenetworkmodule), [006](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-006-replace-consolewriteline-in-genericdescriptortranslator), [007](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-007-replace-consolewriteline-in-network-systems)
 
 **Description:**
-Update `RecorderSystem` to ignore entities below `MinRecordableId` (default 65536).
+Replace all `Console.WriteLine` calls with `FdpLog<T>`.
 
 **Requirements:**
-1. Add `MinRecordableId` property.
-2. Modify `RecordDeltaFrame` to skip chunks/entities below this ID.
-
-**Tests:**
-- ✅ `RecorderSystem_SkipsSystemRange`
+- Use `Info` for lifecycle events.
+- Use `Debug` or `Trace` for per-frame or per-packet logs.
+- **CRITICAL:** Guard all `Debug`/`Trace` calls with `if (FdpLog<T>.IsDebugEnabled)` checks to prevent allocation in hot paths.
+- Ensure `GenericDescriptorTranslator` logs detailed authority checks (trace level) to help diagnose "Remote: 0" issues.
 
 ---
 
-## ✅ Part 2: Replication Toolkit
+### Task 4: Build Test Infrastructure (FDPLT-009, 010, 011)
 
-### Task 4: Data Policy Enforcement (FDP-DRP-004)
-
-**Files:**
-- `ModuleHost/FDP.Toolkit.Replication/Components/NetworkPosition.cs` (UPDATE)
-- `ModuleHost/FDP.Toolkit.Replication/Components/NetworkVelocity.cs` (UPDATE)
-- `ModuleHost/FDP.Toolkit.Replication/Components/NetworkAuthority.cs` (VERIFY)
-- `ModuleHost/FDP.Toolkit.Replication/Components/NetworkIdentity.cs` (VERIFY)
+**New Project:** `Fdp.Examples.NetworkDemo.Tests`  
+**Task Definitions:** [FDPLT-009](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-009-create-test-project), [010](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-010-implement-testlogcapture), [011](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-011-implement-distributedtestenv)
 
 **Description:**
-Mark buffer components with `[DataPolicy(DataPolicy.NoRecord)]` to prevent them from being recorded. Authority components MUST remain recordable.
+Create the testing project and the harness for distributed tests.
 
 **Requirements:**
-1. Add attribute to `NetworkPosition`, `NetworkVelocity`.
-2. Ensure `NetworkIdentity`, `NetworkAuthority`, `DescriptorOwnership` do NOT have this attribute.
+1. **Project:** Create xUnit project, add NLog dependency.
+2. **Capture:** Implement `TestLogCapture` (NLog target that stores logs in `ConcurrentQueue<string>`).
+3. **Environment:** Implement `DistributedTestEnv`:
+   - Can start Node A and Node B in separate Tasks.
+   - Assigns distinct `NodeId` scopes to each.
+   - Provides `WaitForCondition(predicate, timeout)` helper.
+   - Provides `AssertLogContains(nodeId, message)` helper.
 
-**Tests:**
-- ✅ `NetworkComponents_NotRecordable`: Verify `IsRecordable` returns false for buffers.
+**Verification:**
+This task builds the *framework* for testing. The actual verification that it works will be done in **Task 5**, where you write the `FDPLT-012` test case.
 
 ---
 
-### Task 5: FdpDescriptor Attribute (FDP-DRP-005)
+### Task 5: Verify Distributed Logging (FDPLT-012)
 
-**Files:**
-- `ModuleHost/FDP.Interfaces/Attributes/FdpDescriptorAttribute.cs` (CREATE)
+**File:** `Fdp.Examples.NetworkDemo.Tests/Scenarios/InfrastructureTests.cs`
+**Task Definition:** See [FDPLT-012](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md#fdplt-012-test---asynclocal-scope-verification)
 
 **Description:**
-Create the attribute used to mark structs for automatic translator generation.
+This is the acceptance test for the entire batch. You must verify that the logging system correctly marks logs from different instances.
 
 **Requirements:**
-1. Properties: `Ordinal` (int), `TopicName` (string), `IsMandatory` (bool).
-2. AttributeUsage: Structs only.
+- Create `Scenarios/InfrastructureTests.cs`.
+- Implement `Logging_Scope_Flows_Through_Async_And_Tasks`.
+- Start two tasks with different `NodeId` scopes.
+- Verify logs from Task 1 *only* contain NodeId 100.
+- Verify logs from Task 2 *only* contain NodeId 200.
+- Verify context flows through `await` boundaries.
 
-**Tests:**
-- ✅ `FdpDescriptorAttribute_ReflectionAccessible`
-
----
-
-### Task 6: Generic Descriptor Translator (FDP-DRP-006)
-
-**Files:**
-- `ModuleHost/FDP.Toolkit.Replication/Translators/GenericDescriptorTranslator.cs` (CREATE)
-
-**Description:**
-Implement the generic translator that maps ECS components to descriptors 1:1. Includes **Ghost Stash** logic.
-
-**Requirements:**
-1. Generic class `GenericDescriptorTranslator<T>`.
-2. `PollIngress`:
-   - If entity has `BinaryGhostStore` (is a ghost) -> Serialize & Stash data (DO NOT apply).
-   - If active entity -> Apply component directly.
-3. `ScanAndPublish`:
-   - Query entities with `T`, `NetworkIdentity`, `NetworkAuthority`.
-   - Check `HasAuthority(descriptorOrdinal)`.
-   - Publish if owned.
-
-**Design Reference:** [DESIGN.md](../../docs/DESIGN.md) § 7.2
-
-**Tests:**
-- ✅ `GenericTranslator_Ingress_StashesForGhost`
-- ✅ `GenericTranslator_Ingress_AppliesForActive`
-- ✅ `GenericTranslator_Egress_RespectsAuthority`
+**Verification:**
+Run `dotnet test`. This test MUST pass. It proves that our distributed testing strategy is viable.
 
 ---
 
-### Task 7: Assembly Scanning (FDP-DRP-007)
+## ⚠️ Quality Standards
 
-**Files:**
-- `ModuleHost/FDP.Toolkit.Replication/ReplicationBootstrap.cs` (CREATE/UPDATE)
+**❗ CODE QUALITY EXPECTATIONS**
+- **Zero Allocation:** Logging in hot paths (Egress/Ingress) MUST be guarded by `IsXxxEnabled`.
+- **Async Correctness:** `ScopeContext` must be disposed properly (use `using`).
+- **Thread Safety:** `TestLogCapture` uses `ConcurrentQueue`.
 
-**Description:**
-Implement reflection scanner to find `[FdpDescriptor]` types and create translators.
-
-**Requirements:**
-1. `CreateAutoTranslators(Assembly assembly, ...)`
-2. Scan for value types with attribute.
-3. Instantiate `GenericDescriptorTranslator<T>` for each.
-4. Create appropriate serializer for each.
-
-**Tests:**
-- ✅ `Bootstrap_CreatesTranslatorsForAttributedTypes`
+**❗ TEST QUALITY EXPECTATIONS**
+- **Reliability:** `WaitForCondition` must handle variable timing (don't use `Thread.Sleep`).
+- **Isolation:** Logs from Node A must NEVER appear in Node B's capture.
 
 ---
 
-## 🧪 Testing Requirements
+## 📊 Report Requirements
 
-**Test Projects:**
-- `ModuleHost/FDP/Fdp.Tests/` (Kernel tasks)
-- `ModuleHost/FDP.Toolkit.Replication.Tests/` (Toolkit tasks)
+In your report (`.dev-workstream/reports/BATCH-01-REPORT.md`), please answer:
 
-**Quality Standards:**
-- **Zero Allocations:** `ReserveIdRange` and `HydrateEntity` must be allocation-free.
-- **Test Quality:** Do not use `Assert.Contains` for generated code checks. Compile or use reflection to verify behavior.
-- **Ghost Protocol:** Task 6 tests must explicitly verify the Ghost Stash behavior (data buffering) vs immediate application.
-
----
-
-## ⚠️ Common Pitfalls to Avoid
-- **Partial Ownership:** In Task 6, ensure `ScanAndPublish` checks `HasAuthority` for the *specific descriptor ordinal*, not just general authority.
-- **Ghost Stashing:** Failing to stash data for ghosts will cause them to spawn with incomplete state or trigger premature activation.
-- **Attribute Targets:** Ensure `FdpDescriptor` is only valid on structs (value types), as FDP components must be unmanaged/blittable.
+**Developer Insights:**
+1. **Refactoring Risks:** Did splitting `Start()` in `NetworkDemoApp` reveal any initialization order dependencies?
+2. **Log Volume:** With `Trace` enabled, how noisy are the logs? Do we need finer-grained filtering?
+3. **Test Reliability:** Did the `InfrastructureTests` pass consistently? Did you have to adjust timeouts?
 
 ---
 
 ## 📚 Reference Materials
-- [TASK-DETAIL.md](../../docs/TASK-DETAIL.md) - Tasks 001-007
-- [DESIGN.md](../../docs/DESIGN.md) - Section 7 (Zero Boilerplate Networking)
+- **Task Specs:** [LOGGING-AND-TESTING-TASK-DETAILS.md](../../docs/LOGGING-AND-TESTING-TASK-DETAILS.md)
+- **Design:** [LOGGING-AND-TESTING-DESIGN.md](../../docs/LOGGING-AND-TESTING-DESIGN.md)
+- **Onboarding:** [ONBOARDING.md](../../ONBOARDING.md)

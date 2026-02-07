@@ -30,6 +30,8 @@ using ModuleHost.Network.Cyclone.Modules;
 using ModuleHost.Network.Cyclone.Providers;
 using CycloneDDS.Runtime;
 using CycloneDDS.Runtime.Tracking;
+using NLog;
+using FDP.Kernel.Logging;
 
 namespace Fdp.Examples.NetworkDemo
 {
@@ -76,8 +78,11 @@ namespace Fdp.Examples.NetworkDemo
         private NodeIdMapper nodeMapper;
         private TkbDatabase tkb;
 
-        public async Task Start(int nodeId, bool replayMode, string recPath = null)
+        public async Task InitializeAsync(int nodeId, bool replayMode, string recPath = null)
         {
+            using (ScopeContext.PushProperty("NodeId", nodeId))
+            {
+            FdpLog<NetworkDemoApp>.Info($"Starting Node {nodeId}...");
             instanceId = nodeId;
             isReplay = replayMode;
             recordingPath = recPath ?? $"node_{instanceId}.fdp";
@@ -250,6 +255,22 @@ namespace Fdp.Examples.NetworkDemo
                  SpawnLocalEntities(World, tkb, instanceId, localInternalId);
                  Console.WriteLine($"[SPAWN] Created local entities");
             }
+            } // End ScopeContext
+        }
+
+        public async Task RunLoopAsync(System.Threading.CancellationToken token)
+        {
+             using (ScopeContext.PushProperty("NodeId", instanceId))
+             {
+                int frameCount = 0;
+                while (!token.IsCancellationRequested)
+                {
+                    Update(0.1f);
+                    if (frameCount % 60 == 0) PrintStatus();
+                    try { await Task.Delay(33, token); } catch (TaskCanceledException) { break; }
+                    frameCount++;
+                }
+             }
         }
 
         public void Update(float dt)

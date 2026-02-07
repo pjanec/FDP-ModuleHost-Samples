@@ -38,7 +38,6 @@ You are the **Development Lead** managing implementation work through a structur
 ├── batches/                       # Batch instructions (you write)
 │   ├── BATCH-01-INSTRUCTIONS.md
 │   ├── BATCH-02-INSTRUCTIONS.md
-│   ├── BATCH-03.1-INSTRUCTIONS.md  # Corrective batch example
 │   └── ...
 │
 ├── reports/                       # Developer submissions
@@ -690,11 +689,11 @@ Tests: [X tests, covering Y scenarios]
 
 ---
 
-## 🔧 Corrective Batches - When and How
+## 🔧 Corrective tasks - When and How
 
-### When to Create a Corrective Batch
+### Place the corrective tasks at the beginning of next batch
 
-Use **sub-numbered batches** (e.g., BATCH-12.1) when:
+Use when:
 
 1. **Serious Issues Found During Review**
    - Architectural violations that shipped
@@ -713,118 +712,6 @@ Use **sub-numbered batches** (e.g., BATCH-12.1) when:
    - Quick fixes (< 30 minutes)
    - Documentation updates only
 
-### How to Create a Corrective Batch
-
-**File naming:** `BATCH-XX.1-INSTRUCTIONS.md` (or .2, .3 for multiple corrections)
-
-**Structure:**
-
-```markdown
-# BATCH-XX.1: [Original Batch Name] - Corrections
-
-**Batch Number:** BATCH-XX.1 (Corrective)  
-**Parent Batch:** BATCH-XX  
-**Estimated Effort:** [hours]  
-**Priority:** HIGH (Corrective)
-
----
-
-## 📋 Onboarding & Workflow
-[Standard onboarding section - ALWAYS include]
-
-### Background
-This is a **corrective batch** addressing issues found in BATCH-XX review.
-
-**Original Batch:** `.dev-workstream/batches/BATCH-XX-INSTRUCTIONS.md`  
-**Review with Issues:** `.dev-workstream/reviews/BATCH-XX-REVIEW.md`
-
-Please read both before starting.
-
----
-
-## 🎯 Objectives
-
-This batch corrects the following issues from BATCH-XX:
-
-1. **Issue 1:** [Description]
-   - **Why it's a problem:** [Impact]
-   - **What needs to change:** [Solution]
-
-2. **Issue 2:** [Description]
-   - **Why it's a problem:** [Impact]
-   - **What needs to change:** [Solution]
-
----
-
-## ✅ Tasks
-
-### Task 1: Fix [Issue from Review]
-[Detailed instructions on what to change]
-
-**Original Implementation:**
-```[language]
-// Current code that's wrong
-```
-
-**Required Change:**
-```[language]
-// Corrected code
-```
-
-**Why This Matters:** [Explanation]
-
-**Tests Required:**
-- ✅ [Test validating fix]
-
-[Repeat for each correction]
-
----
-
-## 🧪 Testing Requirements
-
-**Existing tests that must still pass:** All tests from BATCH-XX
-
-**New tests required:** [Specific tests for corrections]
-
----
-
-## 🎯 Success Criteria
-
-This batch is DONE when:
-1. ✅ All issues from review addressed
-2. ✅ All original tests still passing
-3. ✅ New tests covering corrections
-4. ✅ No new issues introduced
-
----
-
-**Report to:** `.dev-workstream/reports/BATCH-XX.1-REPORT.md`
-```
-
-### Tracking Corrective Batches
-
-Update TASK-TRACKER.md:
-
-```markdown
-## Phase X: [Phase Name]
-
-- [x] **TASK-X01** [Task Name] → [details](TASK-DEFINITIONS.md#task-x01)
-- [⚠️] **TASK-X02** [Task Name] → [details](TASK-DEFINITIONS.md#task-x02) *needs fixes from BATCH-12.1*
-- [ ] **TASK-X03** [Task Name] → [details](TASK-DEFINITIONS.md#task-x03)
-```
-
-**Key Points:**
-- Keep TASK-TRACKER.md brief (hierarchical checklist)
-- Use task IDs consistently (TASK-D01, TASK-C05, etc.)
-- Link to TASK-DEFINITIONS.md for details
-- Tasks are atomic units; batches group them dynamically
-
-**The workflow is:**
-1. **TASK-DEFINITIONS.md** → Understand what needs to be built (stable definitions)
-2. **Design docs** → Understand how it should work (technical specs)
-3. **TASK-TRACKER.md** → Check status (quick overview)
-4. **BATCH-XX-INSTRUCTIONS.md** → Get specific implementation tasks (dynamic grouping)
----
 
 ## 📝 Git Commit Message Generation
 
@@ -903,26 +790,6 @@ Testing:
 Related: TASK-DEFINITIONS.md, Architect Q6 (structural cost), Q7 (global table)
 ```
 
-**Example: Corrective Batch**
-
-```
-fix: Correct ownership event emission in OwnershipUpdateTranslator (BATCH-12.1)
-
-Addresses critical issue where DescriptorAuthorityChanged events were not emitted
-during ownership transfers, preventing modules from reacting to ownership changes.
-
-Changes:
-- OwnershipUpdateTranslator: Added event emission logic
-- OwnershipUpdateTranslator: Added ForceNetworkPublish component for SST confirmation
-- Added integration test for event consumption by subscribing modules
-
-Testing:
-- 5 new tests for ownership transfer events
-- All BATCH-12 tests still passing
-
-Fixes: Issue #1 from BATCH-12 review
-Related: .dev-workstream/reviews/BATCH-12-REVIEW.md
-```
 
 **Provide to Developer:**
 
@@ -1075,11 +942,11 @@ When you commit this batch, use the following message:
 3. **Quick re-review** (15-30 min)
 4. **Approve** and continue
 
-#### If SERIOUS ISSUES (Need Corrective Batch):
+#### If SERIOUS ISSUES (Need Corrective Tasks):
 1. **Write review** documenting issues (list affected task IDs)
 2. **Update TASK-DEFINITIONS.md** (add issues to affected tasks)
 3. **Update TASK-TRACKER.md** (mark affected tasks as ⚠️ needs fixes)
-4. **Create BATCH-XX.1-INSTRUCTIONS.md** (reference affected task IDs)
+4. **Create next batch starting with corrective instruction for previous batch** (reference affected task IDs)
 5. **Assign corrective batch** to developer
 
 ---
@@ -1205,7 +1072,6 @@ Review:       .dev-workstream/reviews/BATCH-XX-REVIEW.md
 ### Batch Numbering
 
 - **Sequential:** BATCH-01, BATCH-02, BATCH-03...
-- **Corrective:** BATCH-12.1, BATCH-12.2 (sub-batches)
 - **Parallel work:** BATCH-05a, BATCH-05b (if needed, but avoid)
 
 ### Time Estimates

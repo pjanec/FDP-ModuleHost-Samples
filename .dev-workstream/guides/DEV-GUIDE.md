@@ -451,13 +451,6 @@ When batch instructions include specific questions like:
 - Update report with changes
 - Resubmit for review
 
-#### 4. CORRECTIVE BATCH REQUIRED
-**Meaning:** Serious issues need dedicated work  
-**Your action:**
-- Read parent batch review
-- Work on new BATCH-XX.1 instructions
-- Fix issues systematically
-- Don't rush - do it right
 
 ### How to Handle Criticism
 

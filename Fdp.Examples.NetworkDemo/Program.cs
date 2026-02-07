@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Fdp.Examples.NetworkDemo.Configuration;
 
 namespace Fdp.Examples.NetworkDemo;
 
@@ -14,8 +15,10 @@ class Program
         
         bool isReplay = modeArg == "replay";
         
+        LogSetup.ConfigureForDevelopment(instanceId);
+        
         using var app = new NetworkDemoApp();
-        await app.Start(instanceId, isReplay, recordingPath);
+        await app.InitializeAsync(instanceId, isReplay, recordingPath);
         
         Console.WriteLine("==========================================");
         Console.WriteLine("           Values Running...              ");
@@ -24,23 +27,9 @@ class Program
         var cts = new System.Threading.CancellationTokenSource();
         Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
         
-        int frameCount = 0;
-        
         try 
         {
-            while (!cts.Token.IsCancellationRequested)
-            {
-                // Core loop extracted to app.Update
-                app.Update(0.1f);
-                
-                if (frameCount % 60 == 0) // Less frequent printing
-                {
-                    app.PrintStatus();
-                }
-                
-                await Task.Delay(33); // ~30Hz loop
-                frameCount++;
-            }
+            await app.RunLoopAsync(cts.Token);
         }
         catch (Exception ex)
         {

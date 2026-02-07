@@ -10,6 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="NLog" Version="5.2.8" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ModuleHost\ModuleHost.Core\ModuleHost.Core.csproj" />
     <ProjectReference Include="..\ModuleHost.Network.Cyclone\ModuleHost.Network.Cyclone.csproj" />
     <ProjectReference Include="..\ModuleHost\FDP.Toolkit.Replication\FDP.Toolkit.Replication.csproj" />

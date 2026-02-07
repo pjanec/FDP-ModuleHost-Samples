@@ -70,19 +70,10 @@ This demonstrates:
 
 ## Key Documentation
 
-Read these documents in order:
-
-1. **[DESIGN.md](./DESIGN.md)** - Complete architectural design
+1. **[DESIGN.md](./TANK-DESIGN.md)** - Complete architectural design
    - Read this first to understand the full picture
    - Pay special attention to § 4 (Shadow World Pattern) and § 3.1 (ID Management)
 
-2. **[TASK-DETAIL.md](./TASK-DETAIL.md)** - Detailed task specifications
-   - Reference this when implementing specific features
-   - Each task has clear success conditions and test cases
-
-3. **[TASK-TRACKER.md](./TASK-TRACKER.md)** - Implementation progress
-   - Check this to see what's done and what needs work
-   - Update task status as you complete work
 
 4. **[DEV-GUIDE.md](./.dev-workstream/DEV-GUIDE.md)** - Development practices
    - How to write code, tests, and documentation
@@ -526,20 +517,200 @@ public async Task FullScenario_RecordAndReplay() {
 
 ---
 
+## Logging Infrastructure
+
+The project uses **NLog** for high-performance logging with AsyncLocal context flow for distributed system diagnostics.
+
+### Architecture
+
+- **Static Facade:** `FdpLog<T>` - Zero-allocation logging interface
+- **Context Flow:** AsyncLocal automatically tracks NodeId across Tasks/awaits
+- **Granular Filtering:** Module-level log configuration (Trace for Network, Warn for Kernel)
+- **Async I/O:** Background file writes to avoid blocking simulation loop
+
+### Basic Usage
+
+```csharp
+using FDP.Kernel.Logging;
+
+// In performance-critical code (hot path)
+if (FdpLog<MySystem>.IsDebugEnabled)
+    FdpLog<MySystem>.Debug($"Entity {entity.Index} moved to {position}");
+
+// For non-critical paths
+FdpLog<MyModule>.Info("System initialized successfully");
+FdpLog<MyModule>.Error("Critical failure detected", exception);
+```
+
+### Configuration
+
+See `Fdp.Examples.NetworkDemo/Configuration/LogSetup.cs` for setup options:
+
+```csharp
+// Development mode - verbose logging
+LogSetup.ConfigureForDevelopment(nodeId: 100, verboseTrace: true);
+
+// Production mode - optimized
+LogSetup.ConfigureForProduction(nodeId: 100);
+
+// Test mode - in-memory capture
+LogSetup.ConfigureForTesting(testName: "MyTest");
+```
+
+### Log Output
+
+Logs are written to `logs/node_{nodeId}.log` with automatic node identification:
+
+```
+2026-02-07 14:32:15.234|DEBUG|Node-100|CycloneNetworkModule|Registered 2 translators
+2026-02-07 14:32:15.256|TRACE|Node-100|GenericDescriptorTranslator|Entity 65536: HasAuth(5)=True
+2026-02-07 14:32:15.278|INFO|Node-200|CycloneIngress|Created ghost for NetID 100_65536
+```
+
+### Performance Guidelines
+
+- **Always guard expensive operations:**
+  ```csharp
+  // BAD - Always allocates interpolated string
+  FdpLog<MySystem>.Debug($"Position: {pos.X}, {pos.Y}, {pos.Z}");
+  
+  // GOOD - Zero allocation if disabled
+  if (FdpLog<MySystem>.IsDebugEnabled)
+      FdpLog<MySystem>.Debug($"Position: {pos.X}, {pos.Y}, {pos.Z}");
+  ```
+
+- **Use appropriate log levels:**
+  - `Trace` - Detailed flow (rarely enabled, hot path)
+  - `Debug` - Important state changes
+  - `Info` - Lifecycle events, mode switches
+  - `Warn` - Recoverable issues
+  - `Error` - Critical failures
+
+### Troubleshooting with Logs
+
+Common diagnostic patterns:
+
+**"Remote: 0" issue:**
+```powershell
+# Check if descriptors are being published
+grep "Published descriptor" logs/node_100.log
+
+# Check if remote node receives them
+grep "Received sample" logs/node_200.log
+```
+
+**Ownership issues:**
+```powershell
+# Should see "Skipped" for non-owned descriptors
+grep "Skipped.*Not Owner" logs/node_100.log
+```
+
+**See [LOGGING-AND-TESTING-DESIGN.md](./docs/LOGGING-AND-TESTING-DESIGN.md) for complete architecture.**
+
+---
+
+## Testing Framework
+
+The project includes a comprehensive **Distributed E2E Testing Framework** for verifying networked simulation behavior.
+
+### Running Tests
+
+```powershell
+# Run all tests
+dotnet test Fdp.Examples.NetworkDemo.Tests
+
+# Run specific test
+dotnet test --filter "FullyQualifiedName~Entity_Lifecycle"
+
+# Run with verbose output
+dotnet test --logger "console;verbosity=detailed"
+```
+
+### Test Categories
+
+**Infrastructure Tests** (`Scenarios/InfrastructureTests.cs`)
+- Verify logging scope flows correctly
+- Validate AsyncLocal context across Tasks
+
+**Replication Tests** (`Scenarios/ReplicationTests.cs`)
+- Basic entity creation and synchronization
+- Component data propagation
+- Geographic coordinate translation
+
+**Lifecycle Tests** (`Scenarios/LifecycleTests.cs`)
+- Entity creation, activation, destruction
+- Ghost protocol (orphan protection)
+- Sub-entity hierarchy cleanup
+
+**Ownership Tests** (`Scenarios/OwnershipTests.cs`)
+- Partial ownership (split control)
+- Dynamic ownership transfer
+- Authority validation
+
+**Advanced Tests**
+- Deterministic time mode switching
+- Distributed replay verification
+- Reactive system behavior
+
+### Writing New Tests
+
+Use `DistributedTestEnv` to orchestrate multi-node scenarios:
+
+```csharp
+[Fact]
+public async Task My_Distributed_Test()
+{
+    using var env = new DistributedTestEnv(_output);
+    await env.StartNodesAsync();
+    
+    // Spawn entity on Node A
+    var tankA = env.NodeA.SpawnTank();
+    long netId = env.NodeA.GetNetworkId(tankA);
+    
+    // Wait for replication to Node B
+    await env.WaitForCondition(
+        app => app.TryGetEntityByNetId(netId, out _),
+        env.NodeB,
+        timeoutMs: 3000);
+    
+    // Verify state
+    var tankB = env.NodeB.GetEntityByNetId(netId);
+    Assert.NotEqual(Entity.Null, tankB);
+    
+    // Verify logs
+    env.AssertLogContains(100, "Published descriptor");
+    env.AssertLogContains(200, "Created ghost");
+}
+```
+
+### Test Helpers
+
+- `env.StartNodesAsync()` - Initialize nodes concurrently
+- `env.RunFrames(count)` - Execute N simulation frames
+- `env.WaitForCondition(predicate, target, timeout)` - Async condition waiting
+- `env.AssertLogContains(nodeId, message)` - Log verification
+
+**See test examples in `Fdp.Examples.NetworkDemo.Tests/Scenarios/` directory.**
+
+---
+
 ## Getting Help
 
 ### Internal Resources
 
-1. **Design Document** - [DESIGN.md](./DESIGN.md) - Architecture questions
-2. **Task Details** - [TASK-DETAIL.md](./TASK-DETAIL.md) - Implementation questions
-3. **Code Comments** - Most APIs have XML documentation
-4. **Unit Tests** - See test files for usage examples
+1. **Tank Design Document** - [docs/TANK-DESIGN.md](./docs/TANK-DESIGN.md) - Network demo architecture
+2. **Logging & Testing Design** - [docs/LOGGING-AND-TESTING-DESIGN.md](./docs/LOGGING-AND-TESTING-DESIGN.md) - Infrastructure details
+3. **Task Details** - [docs/LOGGING-AND-TESTING-TASK-DETAILS.md](./docs/LOGGING-AND-TESTING-TASK-DETAILS.md) - Implementation specs
+4. **Task Tracker** - [docs/LOGGING-AND-TESTING-TASK-TRACKER.md](./docs/LOGGING-AND-TESTING-TASK-TRACKER.md) - Progress tracking
+5. **Code Comments** - Most APIs have XML documentation
+6. **Unit Tests** - See test files for usage examples
 
 ### External Resources
 
 1. **FDP Kernel Docs** - `ModuleHost/FDP/docs/`
 2. **CycloneDDS Docs** - DDS protocol and API reference
 3. **WGS84 Spec** - Geographic coordinate system standard
+4. **NLog Documentation** - https://nlog-project.org/
 
 ### Communication
 
@@ -549,34 +720,3 @@ public async Task FullScenario_RecordAndReplay() {
 
 ---
 
-## Next Steps
-
-1. **Read the Design Document** - [DESIGN.md](./DESIGN.md) (1-2 hours)
-2. **Explore the Codebase:**
-   - Run existing examples: `Fdp.Examples.CarKinem`, `Fdp.Examples.IdAllocatorDemo`
-   - Read core kernel: `ModuleHost/FDP/EntityRepository.cs`
-   - Study recording system: `ModuleHost/FDP/FlightRecorder/`
-3. **Set Up Dev Environment:**
-   - Clone repository
-   - Build solution
-   - Run tests to verify setup
-4. **Pick Your First Task:**
-   - Check [TASK-TRACKER.md](./TASK-TRACKER.md) for available tasks
-   - Start with Phase 1 if nothing is done yet
-   - Coordinate with team to avoid conflicts
-5. **Read Dev Guide** - [DEV-GUIDE.md](./.dev-workstream/DEV-GUIDE.md) before first commit
-
----
-
-## Welcome Aboard!
-
-This is an ambitious project that pushes distributed simulation to its limits. The architecture is sophisticated, but the payoff is huge: **true distributed replay** with **high-fidelity reconstruction** and **zero performance overhead**.
-
-Your contributions will help demonstrate the full power of the FDP Engine and set a new standard for networked simulation frameworks.
-
-**Questions?** Don't hesitate to ask. Good luck and happy coding!
-
----
-
-**Document Version:** 1.0  
-**Last Updated:** {{ Current Date }}

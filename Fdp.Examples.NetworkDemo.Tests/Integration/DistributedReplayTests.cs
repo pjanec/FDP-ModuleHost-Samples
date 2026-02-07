@@ -28,8 +28,8 @@ namespace Fdp.Examples.NetworkDemo.Tests.Integration
                  using (var appA = new NetworkDemoApp())
                  using (var appB = new NetworkDemoApp())
                  {
-                     await appA.Start(100, false, recA);
-                     await appB.Start(200, false, recB);
+                     await appA.InitializeAsync(100, false, recA);
+                     await appB.InitializeAsync(200, false, recB);
                      
                      for(int i=0; i<100; i++)
                      {
@@ -53,8 +53,8 @@ namespace Fdp.Examples.NetworkDemo.Tests.Integration
                  using (var replayA = new NetworkDemoApp())
                  using (var replayB = new NetworkDemoApp())
                  {
-                     await replayA.Start(100, true, recA);
-                     await replayB.Start(200, true, recB);
+                     await replayA.InitializeAsync(100, true, recA);
+                     await replayB.InitializeAsync(200, true, recB);
                      
                      for(int i=0; i<150; i++) 
                      {
